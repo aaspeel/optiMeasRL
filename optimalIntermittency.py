@@ -31,12 +31,13 @@ DEBUGMODE=False
 
 class OptimalIntermittency(Environment):
     
-    def __init__(self,estimator,objectives,observations,rng):
+    def __init__(self,estimator, penalization, objectives,observations,rng):
         """ Initialize environment.
 
         Parameters
         -----------
         estimator : a RNN or a Kalman Filter that tries to estimate objectives from observations
+        penalization : a class inheriting Penalization to compute the penalization of the agent
         rng : the numpy random number generator
         """
         
@@ -47,7 +48,8 @@ class OptimalIntermittency(Environment):
         if not isinstance(estimator,Estimator):
             print('ERROR: estimator must be an object that inherit the Estimator Class')
         self._estimator=estimator
-        
+        self._penalization = penalization
+
         self._outOfRangeValue=estimator.outOfRangeValue()
         self._sigmaMEMORY=sigmaMEMORY
         self._observationsMEMORY=observationsMEMORY
@@ -78,7 +80,7 @@ class OptimalIntermittency(Environment):
         self._last_ponctual_observation = [0,self._n_dim_obs*[self._outOfRangeValue]] # At each time step, the observation is made up of two elements, each scalar
         
         print('Environment parameters')
-        print('  PENALIZATION=',PENALIZATION)
+        print('  PENALIZATION=',str(self._penalization))
         print('  sigmaMEMORY=',sigmaMEMORY)
         print('  observationsMEMORY=',observationsMEMORY)
         print('Sequences parameters')
@@ -133,6 +135,7 @@ class OptimalIntermittency(Environment):
         
         # reset the estimator
         self._estimator.reset()
+        self._penalization.reset()
         
         self._mode=mode # for debug
         
@@ -176,8 +179,7 @@ class OptimalIntermittency(Environment):
         error=np.linalg.norm(error) # scalar
         
         # compute reward
-        reward=-action*PENALIZATION # cost of one measurement
-        reward-=error # - error
+        reward = self._penalization.get(error, action)
         
         current_observations = np.reshape(current_observations_outOfRange,(-1))
         

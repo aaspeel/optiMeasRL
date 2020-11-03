@@ -11,6 +11,10 @@ class Penalization:
         Implement if needed.
         """
 
+    def reset(self):
+        """
+        Rest internal parameters
+        """
 
     def get(self, error, *args, **kwargs):
         """ Return the penalization for the RL agent given a certain criteria
@@ -20,6 +24,5 @@ class Penalization:
         -------
         penalization : the penalization send to the agent
         """
-
         return -error
         

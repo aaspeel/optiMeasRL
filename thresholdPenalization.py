@@ -5,14 +5,25 @@ the error becomes -1-error given that the signal is between 0 and 1
 such that taking a new measure is too costly for the agent.
 """
 
+from penalization import Penalization
+
 class ThresholdPenalization(Penalization):
 
     def __init__(self, threshold):
         """
         Implement if needed.
         """
-        self.threshold = threshold
-        self.numberOfMeasure = 0
+        self._threshold = threshold
+        self._numberOfMeasure = 0
+        self._errors = []
+
+
+    def reset(self):
+        """
+        Rest internal parameters
+        """
+        self._numberOfMeasure = 0
+        self._errors = []
 
 
     def get(self, error, action, *args, **kwargs):
@@ -25,9 +36,16 @@ class ThresholdPenalization(Penalization):
         penalization : the penalization send to the agent
         """
 
-        self.numberOfMeasure += action
-        if self.numberOfMeasure >= self.threshold:
+        self._numberOfMeasure += action
+        if self._numberOfMeasure >= self._threshold:
+            self._errors.append(-1-error)
             return -1-error
-
+        self._errors.append(-error)
         return -error
+    
+    def info(self):
+        print("threshold: " + str(self._threshold))
+        print("number of measures: " + str(self._numberOfMeasure))
+        print("error for measure: " + str(self.get(0,0)))
+        print("error history: " + str(self._errors))
         

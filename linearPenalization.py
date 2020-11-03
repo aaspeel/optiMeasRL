@@ -6,6 +6,8 @@ default value which means that the maximum error the predictor should make is 0.
 given that the signal is between 0 and 1.
 """
 
+from penalization import Penalization
+
 class LinearPenalization(Penalization):
 
     def __init__(self, threshold):
@@ -14,10 +16,17 @@ class LinearPenalization(Penalization):
         ---------
         threshold : the maximum number of measures allowed (must be > 0)
         """
-        self.threshold = threshold
-        self.numberOfMeasure = 0
-        assert(self.threshold > 0)
-        self.errorStep = 0.5/self.threshold
+        self._threshold = threshold
+        self._numberOfMeasure = 0
+        assert(self._threshold > 0)
+        self._errorStep = 0.5/self.threshold
+
+
+    def reset(self):
+        """
+        Rest internal parameters
+        """
+        self._numberOfMeasure = 0
 
 
     def get(self, error, action, *args, **kwargs):
@@ -29,7 +38,7 @@ class LinearPenalization(Penalization):
         -------
         penalization : the penalization send to the agent
         """
-        self.numberOfMeasure += action
+        self._numberOfMeasure += action
 
-        return -error - self.numberOfMeasure * self.errorStep
+        return -error - self._numberOfMeasure * self._errorStep
         
