@@ -1,10 +1,10 @@
 """
-Penalization class
+Rewarder class
 The default behavior is to just use -error of the predictor as the
-penalization (the RL agent should then always take a measurement)
+reward (the RL agent should then always take a measurement)
 """
 
-class Penalization:
+class Rewarder:
 
     def __init__(self):
         """
@@ -16,13 +16,15 @@ class Penalization:
         Rest internal parameters
         """
 
-    def get(self, error, *args, **kwargs):
-        """ Return the penalization for the RL agent given a certain criteria
+    def get(self, error, action, *args, **kwargs):
+        """ Return the reward for the RL agent given a certain criteria
         Arguments
         ---------
         error : the error made by the predictor
+        action : the action taken by the agent (1 means measure taken and 0 none)
+        Returns
         -------
-        penalization : the penalization send to the agent
+        reward : the reward send to the agent
         """
         return -error
         
