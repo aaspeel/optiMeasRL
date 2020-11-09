@@ -1,7 +1,7 @@
 """
 Rewarder class
 The default behavior is to just use -error of the predictor as the
-reward (the RL agent should then always take a measurement)
+reward (the RL agent should then always take a measure)
 """
 
 class Rewarder:

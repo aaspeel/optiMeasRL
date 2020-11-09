@@ -175,7 +175,6 @@ class OptimalIntermittency(Environment):
             
         # compute estimation error
         error=(current_objectives-current_objectives_est).reshape((-1)) # to form an error vector
-        error=np.linalg.norm(error) # scalar
         
         # compute reward
         reward = self._rewarder.get(error, action)
