@@ -15,39 +15,39 @@ import mpl_toolkits.axisartist as AA
 import matplotlib.pyplot as plt
 
 from deer.base_classes import Environment
-from estimator import *
 
 from keras.models import Sequential
 
-from myUtils.sequences_treatment import *
+from utils.sequences_treatment import *
 
 # memories
 sigmaMEMORY=5
 observationsMEMORY=5
 
-PENALIZATION=0 # should be >=0
 
 DEBUGMODE=False
 
 class OptimalIntermittency(Environment):
     
-    def __init__(self,estimator,objectives,observations,rng):
+    def __init__(self, estimator, rewarder, objectives, observations,rng):
         """ Initialize environment.
 
         Parameters
         -----------
         estimator : a RNN or a Kalman Filter that tries to estimate objectives from observations
+        rewared : a class inheriting Rewared to compute the reward of the agent
         rng : the numpy random number generator
         """
         
         if DEBUGMODE:
             print('DEBUG: we are in __init__')
             
-        # Initialize estimator
-        if not isinstance(estimator,Estimator):
-            print('ERROR: estimator must be an object that inherit the Estimator Class')
+        # Set estimator
         self._estimator=estimator
         
+        # Set rewarder
+        self._rewarder=rewarder
+
         self._outOfRangeValue=estimator.outOfRangeValue()
         self._sigmaMEMORY=sigmaMEMORY
         self._observationsMEMORY=observationsMEMORY
@@ -78,7 +78,7 @@ class OptimalIntermittency(Environment):
         self._last_ponctual_observation = [0,self._n_dim_obs*[self._outOfRangeValue]] # At each time step, the observation is made up of two elements, each scalar
         
         print('Environment parameters')
-        print('  PENALIZATION=',PENALIZATION)
+        print('  REWARDER=',str(self._rewarder))
         print('  sigmaMEMORY=',sigmaMEMORY)
         print('  observationsMEMORY=',observationsMEMORY)
         print('Sequences parameters')
@@ -134,6 +134,9 @@ class OptimalIntermittency(Environment):
         # reset the estimator
         self._estimator.reset()
         
+        # reset the rewarder
+        self._rewarder.reset()
+        
         self._mode=mode # for debug
         
         return [sigmaMEMORY*[0],observationsMEMORY*[self._n_dim_obs*[self._outOfRangeValue]]]
@@ -173,11 +176,9 @@ class OptimalIntermittency(Environment):
             
         # compute estimation error
         error=(current_objectives-current_objectives_est).reshape((-1)) # to form an error vector
-        error=np.linalg.norm(error) # scalar
         
         # compute reward
-        reward=-action*PENALIZATION # cost of one measurement
-        reward-=error # - error
+        reward = self._rewarder.get(error, action)
         
         current_observations = np.reshape(current_observations_outOfRange,(-1))
         
@@ -212,7 +213,6 @@ class OptimalIntermittency(Environment):
         #print('counter_action:',self._counter_action)
         #print('A weight of the RNN:',self._estimator.get_layer(index=0).get_weights()[0][0][0])
         print('Summary Perf. Num measurements:',self._counter_measurement,'- Num actions:',self._counter_action,'- Mean sigma:',self._counter_measurement/self._counter_action)
-        #print('PENALIZATION:',PENALIZATION)
         #print()
         #print('sigma',np.shape(sigma),':\n',sigma)
         #print('yc',np.shape(yc),':\n',yc)
