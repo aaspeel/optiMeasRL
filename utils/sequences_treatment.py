@@ -6,8 +6,8 @@ import numpy as np
 from matplotlib import pyplot
 
 def generateSequence(T,numberSamples=1,n=1,m=1,generatorType='sinRandomFreq'):
-    # outputs: x a numpy array of shape (numberSamples,T,n)
-    #          y a numpy array of shape (numserSamples,T,m)
+    # outputs: x a numpy array of shape (numberSamples,T,n) - The quantity to estimate
+    #          y a numpy array of shape (numserSamples,T,m) - The measurement
     
     if generatorType=='random01':
         t=np.random.random([numberSamples,T,1])
@@ -41,7 +41,7 @@ def generateSequence(T,numberSamples=1,n=1,m=1,generatorType='sinRandomFreq'):
         R=np.array([[1,0],[0,1]])*0
         
         (m,n)=np.shape(C) # To have correct reshape at the end of this function
-        (x,y)=dynamicSequence(T,A,C,Q,R,numberSamples=numberSamples)
+        (x,y)=_dynamicSequence(T,A,C,Q,R,numberSamples=numberSamples)
     
     elif generatorType=='sinRandomFreq':
         if (not n==1) or (not m==1):
@@ -90,7 +90,7 @@ def generateSequence(T,numberSamples=1,n=1,m=1,generatorType='sinRandomFreq'):
     return x,y
 
 
-def dynamicSequence(T,A,C,Q,R,numberSamples=1):
+def _dynamicSequence(T,A,C,Q,R,numberSamples=1):
     # return a sequence of length T: x(t+1)=A*x(t)+w(t), w(t)~N(0,Q)
     #                                y(t)=C*x(t)+v(t), v(t)~N(0,R)
     
@@ -130,14 +130,15 @@ def randomSigma(T,numberSamples=1,p0=1./2):
     sigma = np.random.choice([0, 1], size=(numberSamples,T), p=[p0, (1-p0)])
     return sigma
 
-def corruptSequence_mask(observations,sigma):
-    # transform sigma into a (numberSamples,T,m) array without changing sigma
-    (numberSamples,T,n_dim_obs)=np.shape(observations)
-    sigma2=sigma.reshape([numberSamples,T,1])
-    sigma2=np.tile(sigma2,(1,1,n_dim_obs))
-    observations_corrupted = np.ma.array(observations,mask=(1-sigma2))
 
-    return observations_corrupted
+def corruptSequence_mask(measurements,sigma):
+    # transform sigma into a (numberSamples,T,m) array without changing sigma
+    (numberSamples,T,n_dim_meas)=np.shape(measurements)
+    sigma2=sigma.reshape([numberSamples,T,1])
+    sigma2=np.tile(sigma2,(1,1,n_dim_meas))
+    measurements_corrupted = np.ma.array(measurements,mask=(1-sigma2))
+
+    return measurements_corrupted
 
 
 def corruptSequence_outOfRange(y,sigma,outOfRangeValue=-1):
@@ -153,47 +154,33 @@ def corruptSequence_outOfRange(y,sigma,outOfRangeValue=-1):
     return yc
 
 
+def plotErrors(objectives,estimates,sigmas,idx_sample=0,idx_objective=0):
+    
+    scaledSigmas=sigmas[idx_sample,:] * max(objectives[idx_sample,:,idx_objective]) + (1-sigmas[idx_sample,:]) * min(objectives[idx_sample,:,idx_objective])
+    
+    # plot objective, estimate and sigma
+    pyplot.title('Objective')
+    pyplot.plot(estimates[idx_sample,:,idx_objective], marker='o', color='blue', label='estimate')
+    pyplot.plot(objectives[idx_sample,:,idx_objective], marker='o', color='orange', label='real')
+    pyplot.plot(scaledSigmas, marker='o', color='red', label='sigma')
+    #pyplot.plot(measurements_corrupted_mask[ind_sample,:], color='green, label='meas_corrupted')
+    pyplot.legend()
+    pyplot.show()
+    
+    # plot estimation error and sigma
+    absError=abs(objectives-estimates)
+    pyplot.title('Error')
+    pyplot.plot(absError[idx_sample,:,idx_objective], marker='o', color='blue', label='abs error')
+    pyplot.plot(max(absError[idx_sample,:,idx_objective])*sigmas[idx_sample,:], marker='o', color='red', label='sigma')
+    pyplot.legend()
+    pyplot.show()
+    
+
+
 def plotRNNresults(history):
     pyplot.title('Mean squared error')
     pyplot.plot(history.history['loss'], color='blue', label='train')
     pyplot.plot(history.history['val_loss'], color='orange', label='valid')
     pyplot.legend()
     pyplot.show()
-    return pyplot
-
-def corruptSequenceWithAgentPolicy(agent,observations):
-    #  ! ! ! SLOW ! ! !
-    #
-    # corrupt observations according to the test policy of the agent
-    # return sigma and observations_corrupted_outOfRange (outOfRangeValue of the agent)
-    
-    agentPolicy=agent._test_policy
-    
-    outOfRangeValue=agent._environment._outOfRangeValue
-    sigmaMEMORY=agent._environment._sigmaMEMORY
-    observationsMEMORY=agent._environment._observationsMEMORY
-    
-    (numberSamples,T,m)=np.shape(observations)
-    
-    sigma=np.zeros([numberSamples,T])
-    observations_corrupted=observations.copy()
-    for indSample,sample in enumerate(observations_corrupted):
-        # initialize the state of the agent
-        agentState=[sigmaMEMORY*[0],observationsMEMORY*[m*[outOfRangeValue]]]
-        for t,obs_t in enumerate(sample):
-            # compute action from agent state
-            (action,_)=agentPolicy.bestAction(agentState)
-            
-            # for returning
-            sigma[indSample,t]=action
-            if not action: # no observation available
-                observations_corrupted[indSample,t,:]=m*[outOfRangeValue]
-            
-            # observation of the agent
-            agent_obs=[action,observations_corrupted[indSample,t,:]]
-            for i in range(len(agent_obs)):
-                agentState[i][0:-1] = agentState[i][1:]
-                agentState[i][-1] = agent_obs[i]
-            
-    return sigma,observations_corrupted
     

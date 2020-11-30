@@ -56,7 +56,9 @@ class ThresholdRewarder(Rewarder):
         return reward
 
 
-    def info(self):
+    def summarize(self):
+        print("threshold rewarder")
+        print("window size: " + str(self._winSize))
         print("threshold: " + str(self._threshold))
         print("cost: " + str(self._cost))
         print("number of measures in the window: " + str(sum(self._window)))

@@ -16,13 +16,28 @@ class Estimator:
         """
         pass
     
-    def estimate(self,observation_corrupted):
+    def estimate(self,measurement_corrupted):
         """
         Return the estimate from corrupted informations.
-        observation_corrupted is a numpy masked array.
-        Must work (at least) for shape(observation_corrupted)=(1,1,n_dim_observations).
+        measurement_corrupted is a numpy masked array.
+        Must work (at least) for shape(measurement_corrupted)=(1,1,n_dim_measurement).
         """
         return NotImplementedError()
+    
+    
+    def observe(self):
+        """
+        Return an observation to help the reinforcement learning agent.
+        """
+        return None
+    
+    
+    def observationsDimensions(self):
+        """
+        Facultative
+        Return the shape of an obsevation (including the action and the history size).
+        """
+        return ()
     
     
     def outOfRangeValue(self):
@@ -31,19 +46,6 @@ class Estimator:
         """
         return -1
     
-    def extraInfo(self):
-        """
-        Facultative
-        Return extra information to help the reinforcement learning agent.
-        """
-        return None
-    
-    def shapeExtraInfo(self):
-        """
-        Facultative
-        Return the shape of the extra information.
-        """
-        return ()
     
     def summarize(self):
         """
@@ -51,12 +53,13 @@ class Estimator:
         Print a summary of the predictor.
         """
         print("No function summarize() implemented in default Estimator class.")
-        
-    def estimateAll(self,observations_corrupted):
+    
+    
+    def estimateAll(self,measurements_corrupted):
         """
         Facultative
-        Estimate for all the observations_corrupted
-        Contrary to the estimate function, observations_corrupted can have size (numberSamples,T,n_dim_obs)
+        Estimate for all the measurements_corrupted
+        Contrary to the estimate function, measurements_corrupted can have size (numberSamples,T,n_dim_meas)
         """
         return NotImplementedError()
         
@@ -64,7 +67,8 @@ class Estimator:
         """
         Facultative
         Generate sequences ( for which the estimator is designed.
-        Return (objectives,observations) with shapes (numberSamples,T,:)
+        Return (objectives,measurements) with shapes (numberSamples,T,:)
         """
         return NotImplementedError()
+        
     
