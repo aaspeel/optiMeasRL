@@ -11,11 +11,15 @@ from keras.models import model_from_json
 
 class RnnEstimator(Estimator):
     
-    def __init__(self,model,generatorType,outOfRangeValue=-1):
+    def __init__(self,model,generatorType,outOfRangeValue=-1,seeAction=True,seeMeasurement=True,seeEstimate=False):
         """
         Construct the estimator.
+        model and generatorType must have compatible dimensions
         """
         # Could be nice to add defaults values for model and generatorType (but not easy)
+        
+        self._n_dim_meas=model._feed_input_shapes[0][2]
+        self._n_dim_obj=model._feed_output_shapes[0][2]
         
         self._model_stateless=model # store estimateAll() and possible re-training of the model
         
@@ -24,6 +28,11 @@ class RnnEstimator(Estimator):
         
         self._generatorType=generatorType
         self._outOfRangeValue=outOfRangeValue
+        
+        self._seeAction=seeAction
+        self._seeMeasurement=seeMeasurement
+        self._seeEstimate=seeEstimate
+        
         self.reset()
         
     def reset(self):
@@ -31,50 +40,101 @@ class RnnEstimator(Estimator):
         Reset the estimator if necessary.
         """
         self._model.reset_states()
+        
+        # reset observations
+        self._last_action=0
+        self._last_measurement_outOfRange=self._n_dim_meas*[self.outOfRangeValue()]
+        self._last_estimate=self._n_dim_obj*[self.outOfRangeValue()] # could be different
     
-    def estimate(self,observation_corrupted):
+    def estimate(self,measurement_corrupted):
         """
         Return the estimate from corrupted informations.
         """
         # convert the corruption with mask to a corruption with outOfRangeValue
-        current_objective_pred=self._model.predict(observation_corrupted.filled(self._outOfRangeValue))
-        return current_objective_pred
+        current_objective_est=self._model.predict(measurement_corrupted.filled(self._outOfRangeValue))
+        
+        # storage for observation
+        if measurement_corrupted.mask[0]: # masked
+            self._last_action=0
+        else:
+            self._last_action=1
+        self._last_estimate=current_objective_est
+        self._last_measurement_outOfRange=measurement_corrupted.filled(self.outOfRangeValue())
+        
+        return current_objective_est
     
-    def estimateAll(self,observations_corrupted):
+    
+    def observe(self):
+        """
+        Return an observation to help the reinforcement learning agent.
+        """
+        observation=[]
+        if self._seeAction:
+            observation.append( self._last_action )
+        if self._seeMeasurement:
+            observation.append( self._last_measurement_outOfRange )
+        if self._seeEstimate:
+            observation.append( self._last_estimate )
+        
+        return observation
+    
+    
+    def observationsDimensions(self):
+        """
+        Facultative
+        Return the shape of an obsevation (including the action and the history size).
+        """
+        sigmaHistorySize=5
+        measurementHistorySize=5
+        estimateHistorySize=5
+        
+        dim=[]
+        if self._seeAction:
+            dim.append( (sigmaHistorySize,) )
+        if self._seeMeasurement:
+            dim.append( (measurementHistorySize,self._n_dim_meas) )
+        if self._seeEstimate:
+            dim.append( (estimateHistorySize,self._n_dim_obj) )
+        
+        return dim
+    
+    def estimateAll(self,measurements_corrupted):
         """
         ! ! ! Use the stateless model (do not update the internal state).
         Return the estimate from corrupted informations.
         """
         # convert the corruption with mask to a corruption with outOfRangeValue
-        objectives_pred=self._model_stateless.predict(observations_corrupted.filled(self._outOfRangeValue))
+        objectives_pred=self._model_stateless.predict(measurements_corrupted.filled(self.outOfRangeValue()))
         return objectives_pred
-            
-    def extraInfo(self):
-        """
-        Return extra information to help the reinforcement learning agent.
-        """
-        return None
     
-    def shapeExtraInfo(self):
+    
+    def outOfRangeValue(self):
         """
-        Return the shape of the extra information.
+        Return a value out of the range of the sequence of measurements.
         """
-        return ()
+        return self._outOfRangeValue
+    
     
     def summarize(self):
         """
-        Facultative, print a summary of the predictor.
+        Facultative
+        Print a summary of the predictor.
         """
-        print("No function summarize() implemented in default Estimator class.")
+        print('RNN estimator')
+        print('observationsDimensions:',self.observationsDimensions())
+        print('seeAction=',self._seeAction)
+        print('seeMeasurement=',self._seeMeasurement)
+        print('seeEstimate=',self._seeEstimate)
         
     def generateSequence(self,T,numberSamples=1):
         """
         Facultative, generate sequences ( for which the estimator is designed.
-        Return (objectives,observations) with shapes (numberSamples,T,:)
+        Return (objectives,measurements) with shapes (numberSamples,T,:)
         """
-        (objectives,observations)=generateSequence(T,numberSamples=numberSamples,generatorType=self._generatorType)
+        (objectives,measurements)=generateSequence(T,numberSamples=numberSamples,generatorType=self._generatorType)
         
-        return (objectives,observations)
+        return (objectives,measurements)
+    
 
 def convert_to_inference_model(original_model):
     """

@@ -1,41 +1,18 @@
-""" 
-The environment simulates the possibility of buying or selling a good. The agent can either have one unit or zero unit of that good. At each transaction with the market, the agent obtains a reward equivalent to the price of the good when selling it and the opposite when buying. In addition, a penalty of 0.5 (negative reward) is added for each transaction.
-Two actions are possible for the agent:
-- Action 0 corresponds to selling if the agent possesses one unit or idle if the agent possesses zero unit.
-- Action 1 corresponds to buying if the agent possesses zero unit or idle if the agent already possesses one unit.
-The state of the agent is made up of an history of two punctual observations:
-- The price signal
-- Either the agent possesses the good or not (1 or 0)
-The price signal is build following the same rules for the training and the validation environment. That allows the agent to learn a strategy that exploits this successfully.
-"""
-
 import numpy as np
-from mpl_toolkits.axes_grid1 import host_subplot
-import mpl_toolkits.axisartist as AA
-import matplotlib.pyplot as plt
-
 from deer.base_classes import Environment
-
-from keras.models import Sequential
-
 from utils.sequences_treatment import *
-
-# memories
-sigmaMEMORY=5
-observationsMEMORY=5
-
 
 DEBUGMODE=False
 
 class OptimalIntermittency(Environment):
     
-    def __init__(self, estimator, rewarder, objectives, observations,rng):
+    def __init__(self, estimator, rewarder, objectives, measurements,rng):
         """ Initialize environment.
 
         Parameters
         -----------
-        estimator : a RNN or a Kalman Filter that tries to estimate objectives from observations
-        rewared : a class inheriting Rewared to compute the reward of the agent
+        estimator : a RNN or a Kalman Filter that tries to estimate objectives from measurements
+        rewarder : a class inheriting Rewarder to compute the reward of the agent
         rng : the numpy random number generator
         """
         
@@ -43,50 +20,49 @@ class OptimalIntermittency(Environment):
             print('DEBUG: we are in __init__')
             
         # Set estimator
+        estimator.reset()
         self._estimator=estimator
         
         # Set rewarder
+        rewarder.reset()
         self._rewarder=rewarder
 
         self._outOfRangeValue=estimator.outOfRangeValue()
-        self._sigmaMEMORY=sigmaMEMORY
-        self._observationsMEMORY=observationsMEMORY
         
         self._random_state=rng
         
-        (self._numberSamples_all,self._T,self._n_dim_obj)=np.shape(objectives)
-        (_,_,self._n_dim_obs)=np.shape(observations)
+        (self._numberSamples_all,_,self._n_dim_obj)=np.shape(objectives)
+        (_,_,self._n_dim_meas)=np.shape(measurements)
         
         self._objectives_all=objectives
-        self._observations_all=observations
+        self._measurements_all=measurements
         
         # data for training
         self._objectives_train=objectives[:self._numberSamples_all//2,:,:]
-        self._observations_train=observations[:self._numberSamples_all//2,:,:]
+        self._measurements_train=measurements[:self._numberSamples_all//2,:,:]
         (self._numberSamples_train,_,_)=np.shape(self._objectives_train)
         self._remain_samples_train=[] # will be initialized in reset()
         
         # data for validation 
         self._objectives_valid=objectives[self._numberSamples_all//2:,:,:]
-        self._observations_valid=observations[self._numberSamples_all//2:,:,:]
+        self._measurements_valid=measurements[self._numberSamples_all//2:,:,:]
         (self._numberSamples_valid,_,_)=np.shape(self._objectives_valid)
         self._remain_samples_valid=[] # will be initialized in reset()
         
-        self._counter_action=0
+        self._current_time=0
         self._counter_measurement=0
         
-        self._last_ponctual_observation = [0,self._n_dim_obs*[self._outOfRangeValue]] # At each time step, the observation is made up of two elements, each scalar
+        self._last_ponctual_observation = self._estimator.observe() # estimator has been reset.
         
         print('Environment parameters')
         print('  REWARDER=',str(self._rewarder))
-        print('  sigmaMEMORY=',sigmaMEMORY)
-        print('  observationsMEMORY=',observationsMEMORY)
+        print('  inputDimensions=',self.inputDimensions())
         print('Sequences parameters')
         print('  outOfRangeValue=',self._outOfRangeValue)
         print('  numerSamples=',self._numberSamples_all)
-        print('  T=',self._T)
         print('  n_dim_obj=',self._n_dim_obj)
-        print('  n_dim_obs=',self._n_dim_obs)
+        print('  n_dim_meas=',self._n_dim_meas)
+        
         
     def reset(self, mode):
         """ Resets the environment for a new episode.
@@ -105,22 +81,43 @@ class OptimalIntermittency(Environment):
         if DEBUGMODE:
             print('DEBUG: we are in reset')
         
-        self._counter_action=0
+        self._current_time=0
         self._counter_measurement=0
+        
+        self._mode=mode # to identify the inferenceMode
         
         # set the correct data
         if mode==-1: # training mode
             self._objectives=self._objectives_train
-            self._observations=self._observations_train
+            self._measurements=self._measurements_train
             self._numberSamples=self._numberSamples_train
             self._remain_samples=self._remain_samples_train
             # Modifying self._remain_samples also modify self._remain_samples_train
-        else: # validation mode
+            
+        elif mode==0: # validation mode
             self._objectives=self._objectives_valid
-            self._observations=self._observations_valid
+            self._measurements=self._measurements_valid
             self._numberSamples=self._numberSamples_valid
             self._remain_samples=self._remain_samples_valid
             # Modifying self._remain_samples also modify self._remain_samples_valid
+            
+        elif mode==1: # test mode / inference
+            # must be defined from outside:
+                    # - self._objectives_test
+                    # - self._measurements_test
+                    # - preallocation quantities
+            
+            self._objectives=self._objectives_test
+            self._measurements=self._measurements_test
+            self._numberSamples=self._numberSamples_test
+            self._remain_samples=self._remain_samples_test
+            
+            
+        else:
+            raise ValueError("ERROR in OptimalIntermittency: mode=",mode,"is non supported.")
+        
+        # Duration of the current sequence
+        (_,self._T,_)=np.shape(self._measurements)
         
         # Select a random sample. Ensure all samples have been used before re-using one.
         # If no remaining samples, generates a new complete list
@@ -128,19 +125,26 @@ class OptimalIntermittency(Environment):
             self._remain_samples[:]=list(range(self._numberSamples))
             # 'list[:]=' instead of 'list=' conserves the same pointer, i.e. modify also self._remain_samples_currentMode
         
-        # Select randomly a remaining sample and remove it from the list of remaining samples.
-        self._currentSample=self._remain_samples.pop(np.random.randint(len(self._remain_samples)))
-        
-        # reset the estimator
-        self._estimator.reset()
+        if mode==1: # inference mode. No randomness
+            self._currentSample=self._remain_samples.pop(0)
+        else:
+            # Select randomly a remaining sample and remove it from the list of remaining samples.
+            self._currentSample=self._remain_samples.pop(np.random.randint(len(self._remain_samples)))
         
         # reset the rewarder
         self._rewarder.reset()
         
-        self._mode=mode # for debug
+        # reset the estimator
+        self._estimator.reset()
         
-        return [sigmaMEMORY*[0],observationsMEMORY*[self._n_dim_obs*[self._outOfRangeValue]]]
-
+        # construct the initial pseudo state by copying the observation of the estimator
+        obsDim = self._estimator.observationsDimensions()
+        obs = self._estimator.observe() # estimator has been reset
+        initialPseudoState=len(obsDim)*[0] # preallocation
+        for i in range(len(obsDim)):
+            initialPseudoState[i]=obsDim[i][0]*[obs[i]]
+        
+        return initialPseudoState
 
     def act(self, action):
         """ Performs one time-step within the environment and updates the current observation self._last_ponctual_observation
@@ -156,36 +160,39 @@ class OptimalIntermittency(Environment):
         """
         if DEBUGMODE:
             print('DEBUG: we are in act')
+            print('self._mode=',self._mode)
+            print('self._currentSample=',self._currentSample)
         
         # current data
-        current_objectives=self._objectives[self._currentSample,self._counter_action,:]
-        current_observations=self._observations[self._currentSample,self._counter_action,:]
-        current_objectives=current_objectives.reshape(1,1,-1)
-        current_observations=current_observations.reshape(1,1,-1)
+        current_objective=self._objectives[self._currentSample,self._current_time,:]
+        current_measurement=self._measurements[self._currentSample,self._current_time,:]
+        current_objective=current_objective.reshape(1,1,-1)
+        current_measurement=current_measurement.reshape(1,1,-1)
         
         sigma=np.array(action)
         
-        # corrupt current_observations with mask format
-        current_observations_mask = corruptSequence_mask(current_observations,sigma)
-        
-        # corrupt current_observations with outOfRange format
-        current_observations_outOfRange = current_observations_mask.filled(self._outOfRangeValue)
+        # corrupt current_measurements with mask format
+        current_measurement_mask = corruptSequence_mask(current_measurement,sigma)
         
         # estimate
-        current_objectives_est = self._estimator.estimate(current_observations_mask) # shape (1,1,1)
+        current_objective_est = self._estimator.estimate(current_measurement_mask) # shape (1,1,1)
+        
+        # observe (must be after the estimation)
+        self._last_ponctual_observation = self._estimator.observe()
             
         # compute estimation error
-        error=(current_objectives-current_objectives_est).reshape((-1)) # to form an error vector
+        error=(current_objective-current_objective_est).reshape((-1)) # to form an error vector
         
         # compute reward
         reward = self._rewarder.get(error, action)
         
-        current_observations = np.reshape(current_observations_outOfRange,(-1))
+        # If test mode 1, store data
+        if self._mode==1:
+            self._testResults_sigmas[self._currentSample,self._current_time]=action
+            self._testResults_rewards[self._currentSample,self._current_time]=reward
+            self._testResults_estimates[self._currentSample,self._current_time,:]=current_objective_est
         
-        self._last_ponctual_observation[0] = action
-        self._last_ponctual_observation[1] = current_observations_outOfRange
-        
-        self._counter_action+=1
+        self._current_time+=1
         self._counter_measurement+=action
         
         return reward
@@ -206,13 +213,16 @@ class OptimalIntermittency(Environment):
         sigma=observations[0]
         observations_c=observations[1]
         print("np.shape(sigma):",np.shape(sigma))
-        print("np.shape(obserbations_c:",np.shape(observations_c))
+        print("np.shape(obserbations_c):",np.shape(observations_c))
         #print('mode:',self._mode)
         #print('currentSample:',self._currentSample)
         #print('remain_samples:',self._remain_samples)
-        #print('counter_action:',self._counter_action)
+        #print('_current_time:',self._current_time)
         #print('A weight of the RNN:',self._estimator.get_layer(index=0).get_weights()[0][0][0])
-        print('Summary Perf. Num measurements:',self._counter_measurement,'- Num actions:',self._counter_action,'- Mean sigma:',self._counter_measurement/self._counter_action)
+        if self._current_time!=0:
+            print('Summary Perf. Num measurements:',self._counter_measurement,'- Current time:',self._current_time,'- Mean sigma:',self._counter_measurement/self._current_time)
+        else:
+            print('Current time=0')
         #print()
         #print('sigma',np.shape(sigma),':\n',sigma)
         #print('yc',np.shape(yc),':\n',yc)
@@ -223,9 +233,7 @@ class OptimalIntermittency(Environment):
     def inputDimensions(self):
         if DEBUGMODE:
             print('DEBUG: we are in inputDimensions')
-        return [(sigmaMEMORY,),(observationsMEMORY,self._n_dim_obs)]     # We consider an observation made up of an history of 
-                                # - the last sigmaMEMORY for the first scalar element obtained
-                                # - the last observationsMEMORY for the second scalar element
+        return self._estimator.observationsDimensions()
 
     def nActions(self):
         if DEBUGMODE:
@@ -236,13 +244,40 @@ class OptimalIntermittency(Environment):
     def inTerminalState(self):
         if DEBUGMODE:
             print('DEBUG: we are in Terminal State.')
-        return (self._counter_action==self._T)
+        return (self._current_time>=self._T)
 
 
     def observe(self):
         if DEBUGMODE:
             print('DEBUG: we are in observe')
         return np.array(self._last_ponctual_observation)
+        """ WARNING HERE
+        VisibleDeprecationWarning: Creating an ndarray from ragged nested sequences (which is a list-or-tuple of lists-or-tuples-or ndarrays with different lengths or shapes) is deprecated. If you meant to do this, you must specify 'dtype=object' when creating the ndarray
+  return np.array(self._last_ponctual_observation)
+        """
+        
+    def setTestData(self, objectives_test, measurements_test):
+        """
+        give data for testing (mode=1) and preallocate for storage.
+        """
+        # store data
+        self._objectives_test=objectives_test
+        self._measurements_test=measurements_test
+        self._remain_samples_test=[] # will be initialized in reset()
+        
+        (self._numberSamples_test,T_test,_)=np.shape(self._objectives_test)
+        
+        # preallocation to store test results
+        self._testResults_sigmas=np.zeros((self._numberSamples_test,T_test))
+        self._testResults_rewards=np.zeros((self._numberSamples_test,T_test))
+        self._testResults_estimates=np.zeros((self._numberSamples_test,T_test,self._n_dim_obj))
+        # we could add observations
+        
+    def getTestResults(self):
+        """
+        return the data stored during testing (mode=1)
+        """
+        return (self._testResults_sigmas, self._testResults_rewards, self._testResults_estimates)
 
 
 def main():

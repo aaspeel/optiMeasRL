@@ -28,4 +28,11 @@ class Rewarder:
         """
         
         return NotImplementedError()
+    
+    def summarize(self):
+        """
+        Facultative
+        Print a summary of the predictor.
+        """
+        print("No function summarize() implemented in default Estimator class.")
         
