@@ -49,10 +49,9 @@ def constructAgent(estimator,rewarder,objectives,measurements):
     agent.attach(bc.InterleavedTestEpochController(
         id=0, # mode
         epoch_length=1,
-        controllers_to_disable=[1],
-        periodicity=1000000,
+        periodicity=1,
         show_score=False,
-        summarize_every=1000000))
+        summarize_every=10))
     
     return agent
 
@@ -65,26 +64,16 @@ def agentInference(agent, objectives_test, measurements_test):
     
     # give test data to the environment (and erase the previous one)
     agent._environment.setTestData(objectives_test, measurements_test)
-
+    
     # set the inference mode of the agent
-    inferenceMode=1
-    epochLength=numberSamples*T
-    agent.startMode(inferenceMode,epochLength)
-
-    # desactivate controllers
-    #agent.setControllersActive([0,1], False) # controller 2 (InterleavedTestEpochController) is mandatory
-
+    agent.startMode(mode=1, epochLength=numberSamples*T)
+    
     # run on the data
-    print('Inference start')
-    agent.run(n_epochs=1, epoch_length=epochLength)
-    print("Inference end")
-
-    # reactivate controllers
-    #agent.setControllersActive([0,1,2], True)
-
+    agent.run(n_epochs=1, epoch_length=numberSamples*T)
+    
     # take back the results of the running
     (testResults_sigmas, testResults_rewards, testResults_estimates)=agent._environment.getTestResults()
-
+    
     # Back to training mode 
     agent.resumeTrainingMode()
     
