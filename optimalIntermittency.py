@@ -209,20 +209,20 @@ class OptimalIntermittency(Environment):
             print('DEBUG: we are in summarizePerformance')
             
         #print('---------------- Summary Perf ----------------')
-        observations=test_data_set.observations()
-        sigma=observations[0]
-        observations_c=observations[1]
-        print("np.shape(sigma):",np.shape(sigma))
-        print("np.shape(obserbations_c):",np.shape(observations_c))
-        #print('mode:',self._mode)
+        #observations=test_data_set.observations()
+        #sigma=observations[0]
+        #observations_c=observations[1]
+        #print("np.shape(sigma):",np.shape(sigma))
+        #print("np.shape(obserbations_c):",np.shape(observations_c))
+        print('In summarize: mode:',self._mode)
         #print('currentSample:',self._currentSample)
         #print('remain_samples:',self._remain_samples)
         #print('_current_time:',self._current_time)
         #print('A weight of the RNN:',self._estimator.get_layer(index=0).get_weights()[0][0][0])
-        if self._current_time!=0:
-            print('Summary Perf. Num measurements:',self._counter_measurement,'- Current time:',self._current_time,'- Mean sigma:',self._counter_measurement/self._current_time)
-        else:
-            print('Current time=0')
+        #if self._current_time!=0:
+        #    print('Summary Perf. Num measurements:',self._counter_measurement,'- Current time:',self._current_time,'- Mean sigma:',self._counter_measurement/self._current_time)
+        #else:
+        #    print('Current time=0')
         #print()
         #print('sigma',np.shape(sigma),':\n',sigma)
         #print('yc',np.shape(yc),':\n',yc)
