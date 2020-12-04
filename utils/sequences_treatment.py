@@ -153,9 +153,16 @@ def corruptSequence_outOfRange(y,sigma,outOfRangeValue=-1):
     yc=sigma*y + (1-sigma)*outOfRangeValue
     return yc
 
+# --- Plot functions ---
 
-def plotErrors(objectives,estimates,sigmas,idx_sample=0,idx_objective=0):
-    
+def plotRNNresults(history):
+    pyplot.title('Mean squared error')
+    pyplot.plot(history.history['loss'], color='blue', label='train')
+    pyplot.plot(history.history['val_loss'], color='orange', label='valid')
+    pyplot.legend()
+    pyplot.show()
+
+def plotExperiment(objectives,estimates,sigmas,idx_sample=0,idx_objective=0):
     scaledSigmas=sigmas[idx_sample,:] * max(objectives[idx_sample,:,idx_objective]) + (1-sigmas[idx_sample,:]) * min(objectives[idx_sample,:,idx_objective])
     
     # plot objective, estimate and sigma
@@ -163,7 +170,8 @@ def plotErrors(objectives,estimates,sigmas,idx_sample=0,idx_objective=0):
     pyplot.plot(estimates[idx_sample,:,idx_objective], marker='o', color='blue', label='estimate')
     pyplot.plot(objectives[idx_sample,:,idx_objective], marker='o', color='orange', label='real')
     pyplot.plot(scaledSigmas, marker='o', color='red', label='sigma')
-    #pyplot.plot(measurements_corrupted_mask[ind_sample,:], color='green, label='meas_corrupted')
+    pyplot.xlabel('Time t')
+    pyplot.ylabel('z_i')
     pyplot.legend()
     pyplot.show()
     
@@ -172,15 +180,56 @@ def plotErrors(objectives,estimates,sigmas,idx_sample=0,idx_objective=0):
     pyplot.title('Error')
     pyplot.plot(absError[idx_sample,:,idx_objective], marker='o', color='blue', label='abs error')
     pyplot.plot(max(absError[idx_sample,:,idx_objective])*sigmas[idx_sample,:], marker='o', color='red', label='sigma')
+    pyplot.xlabel('Time t')
+    pyplot.ylabel('Error_i')
     pyplot.legend()
     pyplot.show()
     
-
-
-def plotRNNresults(history):
-    pyplot.title('Mean squared error')
-    pyplot.plot(history.history['loss'], color='blue', label='train')
-    pyplot.plot(history.history['val_loss'], color='orange', label='valid')
+def plotHistoErrors(objectives,estimates):
+    errors=objectives-estimates
+    squareErrorNorms=np.square(errors).sum(axis=2)
+    pyplot.title('Square error norm')
+    pyplot.boxplot(squareErrorNorms)
+    pyplot.xlabel('Time t')
+    pyplot.ylabel('Square error norm')
+    #pyplot.legend()
+    pyplot.show()
+    
+def plotHistoRewards(rewards):
+    pyplot.title('Reward')
+    pyplot.boxplot(rewards)
+    pyplot.xlabel('Time t')
+    pyplot.ylabel('Reward r(t)')
+    #pyplot.legend()
+    pyplot.show()
+    
+def plotHistoSigmas(sigmas):
+    pyplot.title('Sigma')
+    pyplot.boxplot(sigmas)
+    pyplot.xlabel('Time t')
+    pyplot.ylabel('Actions sigma(t)')
+    #pyplot.legend()
+    pyplot.show()
+    
+def plotAllErrors(objectives,estimates):
+    errors=objectives-estimates
+    squareErrorNorms=np.square(errors).sum(axis=2)
+    MSEs=squareErrorNorms.mean(axis=0)
+    pyplot.title('Square error norm')
+    pyplot.plot(squareErrorNorms.transpose(), color='blue',alpha=0.2)
+    pyplot.plot(MSEs,color='black',label='Mean')
+    pyplot.xlabel('Time t')
+    pyplot.ylabel('Square error norm')
+    pyplot.legend()
+    pyplot.show()
+    
+def plotAllRewards(rewards):
+    meanRewards=rewards.mean(axis=0)
+    pyplot.title('Reward r(t)')
+    pyplot.plot(rewards.transpose(), color='blue',alpha=0.2)
+    pyplot.plot(meanRewards,color='black',label='Mean')
+    pyplot.xlabel('Time t')
+    pyplot.ylabel('Reward')
     pyplot.legend()
     pyplot.show()
     

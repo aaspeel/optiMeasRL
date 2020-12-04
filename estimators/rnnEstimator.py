@@ -11,7 +11,7 @@ from keras.models import model_from_json
 
 class RnnEstimator(Estimator):
     
-    def __init__(self,model,generatorType,outOfRangeValue=-1,seeAction=True,seeMeasurement=True,seeEstimate=False):
+    def __init__(self,model,generatorType,outOfRangeValue=-1,seeAction=True,seeMeasurement=True,seeEstimate=False,seeTime=False):
         """
         Construct the estimator.
         model and generatorType must have compatible dimensions
@@ -32,6 +32,7 @@ class RnnEstimator(Estimator):
         self._seeAction=seeAction
         self._seeMeasurement=seeMeasurement
         self._seeEstimate=seeEstimate
+        self._seeTime=seeTime
         
         self.reset()
         
@@ -45,7 +46,8 @@ class RnnEstimator(Estimator):
         self._last_action=0
         self._last_measurement_outOfRange=self._n_dim_meas*[self.outOfRangeValue()]
         self._last_estimate=self._n_dim_obj*[self.outOfRangeValue()] # could be different
-    
+        self._time=-1
+        
     def estimate(self,measurement_corrupted):
         """
         Return the estimate from corrupted informations.
@@ -60,9 +62,9 @@ class RnnEstimator(Estimator):
             self._last_action=1
         self._last_estimate=current_objective_est
         self._last_measurement_outOfRange=measurement_corrupted.filled(self.outOfRangeValue())
+        self._time+=1
         
         return current_objective_est
-    
     
     def observe(self):
         """
@@ -75,9 +77,10 @@ class RnnEstimator(Estimator):
             observation.append( self._last_measurement_outOfRange )
         if self._seeEstimate:
             observation.append( self._last_estimate )
+        if self._seeTime:
+            observation.append( 1-1/(self._time+2) ) # to represent the current time in [0,1[
         
         return observation
-    
     
     def observationsDimensions(self):
         """
@@ -95,6 +98,8 @@ class RnnEstimator(Estimator):
             dim.append( (measurementHistorySize,self._n_dim_meas) )
         if self._seeEstimate:
             dim.append( (estimateHistorySize,self._n_dim_obj) )
+        if self._seeTime:
+            dim.append( (1,) )
         
         return dim
     
@@ -115,17 +120,6 @@ class RnnEstimator(Estimator):
         return self._outOfRangeValue
     
     
-    def summarize(self):
-        """
-        Facultative
-        Print a summary of the predictor.
-        """
-        print('RNN estimator')
-        print('observationsDimensions:',self.observationsDimensions())
-        print('seeAction=',self._seeAction)
-        print('seeMeasurement=',self._seeMeasurement)
-        print('seeEstimate=',self._seeEstimate)
-        
     def generateSequence(self,T,numberSamples=1):
         """
         Facultative, generate sequences ( for which the estimator is designed.
@@ -135,7 +129,18 @@ class RnnEstimator(Estimator):
         
         return (objectives,measurements)
     
-
+    def summarize(self):
+        """
+        Facultative
+        Print a summary of the predictor.
+        """
+        print('RNN estimator')
+        print('  observationsDimensions:',self.observationsDimensions())
+        print('  seeAction=',self._seeAction)
+        print('  seeMeasurement=',self._seeMeasurement)
+        print('  seeEstimate=',self._seeEstimate)
+        print('  seeTime=',self._seeTime)
+    
 def convert_to_inference_model(original_model):
     """
     Static function.

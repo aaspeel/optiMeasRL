@@ -55,13 +55,14 @@ class OptimalIntermittency(Environment):
         self._last_ponctual_observation = self._estimator.observe() # estimator has been reset.
         
         print('Environment parameters')
-        print('  REWARDER=',str(self._rewarder))
         print('  inputDimensions=',self.inputDimensions())
         print('Sequences parameters')
         print('  outOfRangeValue=',self._outOfRangeValue)
         print('  numerSamples=',self._numberSamples_all)
         print('  n_dim_obj=',self._n_dim_obj)
         print('  n_dim_meas=',self._n_dim_meas)
+        self._estimator.summarize()
+        self._rewarder.summarize()
         
         
     def reset(self, mode):
@@ -102,7 +103,7 @@ class OptimalIntermittency(Environment):
             # Modifying self._remain_samples also modify self._remain_samples_valid
             
         elif mode==1: # test mode / inference
-            # must be defined from outside:
+            # must be defined from outside using self.setTestData():
                     # - self._objectives_test
                     # - self._measurements_test
                     # - preallocation quantities
@@ -111,10 +112,9 @@ class OptimalIntermittency(Environment):
             self._measurements=self._measurements_test
             self._numberSamples=self._numberSamples_test
             self._remain_samples=self._remain_samples_test
-            
-            
+              
         else:
-            raise ValueError("ERROR in OptimalIntermittency: mode=",mode,"is non supported.")
+            raise ValueError("ERROR in OptimalIntermittency: mode=",mode,"is not supported.")
         
         # Duration of the current sequence
         (_,self._T,_)=np.shape(self._measurements)
@@ -214,7 +214,7 @@ class OptimalIntermittency(Environment):
         #observations_c=observations[1]
         #print("np.shape(sigma):",np.shape(sigma))
         #print("np.shape(obserbations_c):",np.shape(observations_c))
-        print('In summarize: mode:',self._mode)
+        print('In env - summarize: mode:',self._mode)
         #print('currentSample:',self._currentSample)
         #print('remain_samples:',self._remain_samples)
         #print('_current_time:',self._current_time)

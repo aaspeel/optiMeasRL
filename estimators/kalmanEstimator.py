@@ -7,7 +7,7 @@ from utils.linear_systems import *
 
 class KalmanEstimator(Estimator):
     
-    def __init__(self,seeAction=True,seeMeasurement=True,seeEstimate=False,seeCovariance=False):
+    def __init__(self,seeAction=True,seeMeasurement=True,seeEstimate=False,seeTime=False,seeCovariance=False):
         """
         Construct the estimator.
         """
@@ -20,6 +20,7 @@ class KalmanEstimator(Estimator):
         self._seeAction=seeAction
         self._seeMeasurement=seeMeasurement
         self._seeEstimate=seeEstimate
+        self._seeTime=seeTime
         self._seeCovariance=seeCovariance
         
         self.reset()
@@ -36,6 +37,7 @@ class KalmanEstimator(Estimator):
         self._last_action=0
         self._last_measurement_outOfRange=self._n_dim_meas*[self.outOfRangeValue()]
         self._last_estimate=self._n_dim_obj*[self.outOfRangeValue()] # could be different
+        self._time=-1
     
     
     def estimate(self,measurement_corrupted):
@@ -52,6 +54,7 @@ class KalmanEstimator(Estimator):
             self._last_action=1
         self._last_measurement_outOfRange=measurement_corrupted.filled(self.outOfRangeValue())
         self._last_estimate=current_objective_est
+        self._time+=1
         
         return current_objective_est
     
@@ -67,6 +70,8 @@ class KalmanEstimator(Estimator):
             observation.append( self._last_measurement_outOfRange )
         if self._seeEstimate:
             observation.append( self._last_estimate )
+        if self._seeTime:
+            observation.append( 1-1/(self._time+2) ) # to represent the current time in [0,1[
         if self._seeCovariance:
             pass
         
@@ -89,6 +94,8 @@ class KalmanEstimator(Estimator):
             dim.append( (measurementHistorySize,self._n_dim_meas) )
         if self._seeEstimate:
             dim.append( (estimateHistorySize,self._n_dim_obj) )
+        if self._seeTime:
+            dim.append( (1,) )
         if self._seeCovariance:
             print('Option to see covariance not implemented')
         
@@ -118,10 +125,11 @@ class KalmanEstimator(Estimator):
         Print a summary of the predictor.
         """
         print('Kalman estimator')
-        print('observationsDimensions:',self.observationsDimensions())
-        print('seeAction=',self._seeAction)
-        print('seeMeasurement=',self._seeMeasurement)
-        print('seeEstimate=',self._seeEstimate)
-        print('seeCovariance=',self._seeCovariance)
+        print('  observationsDimensions:',self.observationsDimensions())
+        print('  seeAction=',self._seeAction)
+        print('  seeMeasurement=',self._seeMeasurement)
+        print('  seeEstimate=',self._seeEstimate)
+        print('  seeTime=',self._seeTime)
+        print('  seeCovariance=',self._seeCovariance)
         
     

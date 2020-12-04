@@ -28,7 +28,7 @@ def constructAgent(estimator,rewarder,objectives,measurements):
     # --- Bind controllers to the agent ---
     # Before every training epoch, we want to print a summary of the agent's epsilon, discount and 
     # learning rate as well as the training epoch number.
-    agent.attach(bc.VerboseController())
+    agent.attach(bc.VerboseController(modes=[]))
 
     # During training epochs, we want to train the agent after every action it takes.
     # Plus, we also want to display after each training episode (!= than after every training) the average bellman
@@ -48,16 +48,16 @@ def constructAgent(estimator,rewarder,objectives,measurements):
     # Finally, we want to call the summarizePerformance method of Toy_Env every [summarize_every] *test* epochs.
     agent.attach(bc.InterleavedTestEpochController(
         id=0, # mode
-        epoch_length=1,
+        epoch_length=10,
         periodicity=1,
-        show_score=False,
-        summarize_every=10))
+        show_score=True,
+        summarize_every=1))
     
     return agent
 
 def agentInference(agent, objectives_test, measurements_test):
     """
-    Inference on the given data using the given agent
+    Inference on the given data using the given agent. Return the corresponding results.
     """
     
     (numberSamples,T,_)=np.shape(objectives_test)
@@ -65,7 +65,7 @@ def agentInference(agent, objectives_test, measurements_test):
     # give test data to the environment (and erase the previous one)
     agent._environment.setTestData(objectives_test, measurements_test)
     
-    # set the inference mode of the agent
+    # set the inference mode of the agent (and empties agent._tmp_dataset)
     agent.startMode(mode=1, epochLength=numberSamples*T)
     
     # run on the data
