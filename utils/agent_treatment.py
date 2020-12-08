@@ -12,13 +12,18 @@ from deer.learning_algos.q_net_keras import MyQNetwork
 from deer.agent import NeuralAgent
 import deer.experiment.base_controllers as bc
 
+# import personal controller
+from utils.interleavedValidEpochController import InterleavedValidEpochController
 
-def constructAgent(estimator,rewarder,objectives,measurements):
+
+def constructAgent(estimator,rewarder,objectives_train,measurements_train,objectives_valid,measurements_valid):
     """
     Return a new agent
     """
+    (numberSamples_valid,T_valid,_)=np.shape(objectives_valid)
+    
     rng=np.random.RandomState(123456)
-    env=OptimalIntermittency(estimator, rewarder, objectives, measurements,rng)
+    env=OptimalIntermittency(estimator,rewarder,objectives_train,measurements_train,objectives_valid,measurements_valid,rng)
     qnetwork=MyQNetwork(environment=env,random_state=rng)
     agent=NeuralAgent(env,qnetwork,random_state=rng)
 
@@ -33,7 +38,7 @@ def constructAgent(estimator,rewarder,objectives,measurements):
     # During training epochs, we want to train the agent after every action it takes.
     # Plus, we also want to display after each training episode (!= than after every training) the average bellman
     # residual and the average of the V values obtained during the last episode.
-    agent.attach(bc.TrainerController())
+    agent.attach(bc.TrainerController(periodicity=1,evaluate_on='action'))
 
     # All previous controllers control the agent during the epochs it goes through. However, we want to interleave a 
     # "test epoch" between each training epoch ("one of two epochs", hence the periodicity=2). We do not want these 
@@ -46,24 +51,24 @@ def constructAgent(estimator,rewarder,objectives,measurements):
     # in which the indexes are listed is not important.
     # For each test epoch, we want also to display the sum of all rewards obtained, hence the showScore=True.
     # Finally, we want to call the summarizePerformance method of Toy_Env every [summarize_every] *test* epochs.
-    agent.attach(bc.InterleavedTestEpochController(
+    agent.attach(InterleavedValidEpochController(
         id=0, # mode
-        epoch_length=10,
+        epoch_length=numberSamples_valid*T_valid,
         periodicity=1,
         show_score=True,
         summarize_every=1))
     
     return agent
 
-def agentInference(agent, objectives_test, measurements_test):
+def agentInference(agent, objectives, measurements):
     """
     Inference on the given data using the given agent. Return the corresponding results.
     """
     
-    (numberSamples,T,_)=np.shape(objectives_test)
+    (numberSamples,T,_)=np.shape(objectives)
     
     # give test data to the environment (and erase the previous one)
-    agent._environment.setTestData(objectives_test, measurements_test)
+    agent._environment.setTestData(objectives, measurements)
     
     # set the inference mode of the agent (and empties agent._tmp_dataset)
     agent.startMode(mode=1, epochLength=numberSamples*T)
@@ -72,10 +77,39 @@ def agentInference(agent, objectives_test, measurements_test):
     agent.run(n_epochs=1, epoch_length=numberSamples*T)
     
     # take back the results of the running
-    (testResults_sigmas, testResults_rewards, testResults_estimates)=agent._environment.getTestResults()
+    (sigmas, rewards, estimates)=agent._environment.getTestResults()
     
     # Back to training mode 
     agent.resumeTrainingMode()
     
-    return (testResults_sigmas, testResults_rewards, testResults_estimates)
+    return (sigmas, rewards, estimates)
+
+def agentForcedInference(agent, sigmas):
+    (numberSamples,T,_)=agent._environment._objectives_test.shape # throw an error if setTestData has not been called before.
+    
+    # give regular sigma to the agent
+    agent._environment.setForcedActions(sigmas)
+
+    # set the forced mode of the agent (and empties agent._tmp_dataset)
+    agent.startMode(mode=2, epochLength=numberSamples*T)
+
+    # run on the test data
+    agent.run(n_epochs=1, epoch_length=numberSamples*T)
+
+    # take back the results of the running
+    (sigmas_copy, rewards, estimates)=agent._environment.getTestResults()
+
+    # Back to training mode 
+    agent.resumeTrainingMode()
+    
+    if np.linalg.norm(sigmas-sigmas_copy)!=0:
+        print("Warning: a problem happend in agent_treatment.py/agentForcedInference().")
+    
+    return (rewards, estimates)
+
+
+
+
+
+
     

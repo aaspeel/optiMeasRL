@@ -6,7 +6,7 @@ DEBUGMODE=False
 
 class OptimalIntermittency(Environment):
     
-    def __init__(self, estimator, rewarder, objectives, measurements,rng):
+    def __init__(self, estimator, rewarder, objectives_train, measurements_train, objectives_valid, measurements_valid, rng):
         """ Initialize environment.
 
         Parameters
@@ -26,26 +26,22 @@ class OptimalIntermittency(Environment):
         # Set rewarder
         rewarder.reset()
         self._rewarder=rewarder
-
+        
         self._outOfRangeValue=estimator.outOfRangeValue()
-        
         self._random_state=rng
-        
-        (self._numberSamples_all,_,self._n_dim_obj)=np.shape(objectives)
-        (_,_,self._n_dim_meas)=np.shape(measurements)
-        
-        self._objectives_all=objectives
-        self._measurements_all=measurements
+
+        (_,_,self._n_dim_obj)=np.shape(objectives_train)
+        (_,_,self._n_dim_meas)=np.shape(measurements_train)
         
         # data for training
-        self._objectives_train=objectives[:self._numberSamples_all//2,:,:]
-        self._measurements_train=measurements[:self._numberSamples_all//2,:,:]
+        self._objectives_train=objectives_train
+        self._measurements_train=measurements_train
         (self._numberSamples_train,_,_)=np.shape(self._objectives_train)
         self._remain_samples_train=[] # will be initialized in reset()
         
         # data for validation 
-        self._objectives_valid=objectives[self._numberSamples_all//2:,:,:]
-        self._measurements_valid=measurements[self._numberSamples_all//2:,:,:]
+        self._objectives_valid=objectives_valid
+        self._measurements_valid=measurements_valid
         (self._numberSamples_valid,_,_)=np.shape(self._objectives_valid)
         self._remain_samples_valid=[] # will be initialized in reset()
         
@@ -58,9 +54,10 @@ class OptimalIntermittency(Environment):
         print('  inputDimensions=',self.inputDimensions())
         print('Sequences parameters')
         print('  outOfRangeValue=',self._outOfRangeValue)
-        print('  numerSamples=',self._numberSamples_all)
         print('  n_dim_obj=',self._n_dim_obj)
         print('  n_dim_meas=',self._n_dim_meas)
+        print('  numberSamples_train',self._numberSamples_train)
+        print('  numberSamples_valid',self._numberSamples_valid)
         self._estimator.summarize()
         self._rewarder.summarize()
         
@@ -102,17 +99,19 @@ class OptimalIntermittency(Environment):
             self._remain_samples=self._remain_samples_valid
             # Modifying self._remain_samples also modify self._remain_samples_valid
             
-        elif mode==1: # test mode / inference
+        elif mode>=1: #  mode==1: test/inference. mode==2: forced mode.
             # must be defined from outside using self.setTestData():
                     # - self._objectives_test
                     # - self._measurements_test
                     # - preallocation quantities
+            # must be defined if mode==2:
+                    # - self._forcedActions
             
             self._objectives=self._objectives_test
             self._measurements=self._measurements_test
             self._numberSamples=self._numberSamples_test
             self._remain_samples=self._remain_samples_test
-              
+            
         else:
             raise ValueError("ERROR in OptimalIntermittency: mode=",mode,"is not supported.")
         
@@ -163,6 +162,10 @@ class OptimalIntermittency(Environment):
             print('self._mode=',self._mode)
             print('self._currentSample=',self._currentSample)
         
+        # In mode 2, actions are overridden
+        if self._mode==2:
+            action=self._forcedActions[self._currentSample,self._current_time]
+        
         # current data
         current_objective=self._objectives[self._currentSample,self._current_time,:]
         current_measurement=self._measurements[self._currentSample,self._current_time,:]
@@ -186,8 +189,8 @@ class OptimalIntermittency(Environment):
         # compute reward
         reward = self._rewarder.get(error, action)
         
-        # If test mode 1, store data
-        if self._mode==1:
+        # If test mode (mode 1) or in forced mode (mode 2), store data
+        if self._mode>=1:
             self._testResults_sigmas[self._currentSample,self._current_time]=action
             self._testResults_rewards[self._currentSample,self._current_time]=reward
             self._testResults_estimates[self._currentSample,self._current_time,:]=current_objective_est
@@ -214,7 +217,7 @@ class OptimalIntermittency(Environment):
         #observations_c=observations[1]
         #print("np.shape(sigma):",np.shape(sigma))
         #print("np.shape(obserbations_c):",np.shape(observations_c))
-        print('In env - summarize: mode:',self._mode)
+        #print('In env - summarize: mode:',self._mode)
         #print('currentSample:',self._currentSample)
         #print('remain_samples:',self._remain_samples)
         #print('_current_time:',self._current_time)
@@ -250,11 +253,7 @@ class OptimalIntermittency(Environment):
     def observe(self):
         if DEBUGMODE:
             print('DEBUG: we are in observe')
-        return np.array(self._last_ponctual_observation)
-        """ WARNING HERE
-        VisibleDeprecationWarning: Creating an ndarray from ragged nested sequences (which is a list-or-tuple of lists-or-tuples-or ndarrays with different lengths or shapes) is deprecated. If you meant to do this, you must specify 'dtype=object' when creating the ndarray
-  return np.array(self._last_ponctual_observation)
-        """
+        return self._last_ponctual_observation
         
     def setTestData(self, objectives_test, measurements_test):
         """
@@ -278,6 +277,27 @@ class OptimalIntermittency(Environment):
         return the data stored during testing (mode=1)
         """
         return (self._testResults_sigmas, self._testResults_rewards, self._testResults_estimates)
+    
+    def setForcedActions(self,forcedActions):
+        """
+        Actions to use in forced mode (mode 2).
+        forcedActions must have shape (numberSamples_test,T_test).
+        Function setTestData() must have been called previously.
+        """
+        (numberSamples,T)=np.shape(forcedActions)
+        (_,T_test,_)=np.shape(self._objectives_test) # Will throw an error if test data not defined
+        
+        if numberSamples!=self._numberSamples_test or T!=T_test:
+            raise ValueError("ERROR in OptimalIntermittency/setForcedActions: incompatible dimensions.")
+        
+        self._forcedActions=forcedActions
+        
+        # re-initialize the data storage
+        self._remain_samples_test=[] # will be initialized in reset()
+        self._testResults_sigmas=np.zeros((numberSamples,T)) # will be equal to forcedActions
+        self._testResults_rewards=np.zeros((numberSamples,T))
+        self._testResults_estimates=np.zeros((numberSamples,T,self._n_dim_obj))
+        # we could add observations
 
 
 def main():
