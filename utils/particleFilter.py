@@ -7,11 +7,10 @@ def loadPF(T=50):
     """ Create a particle filter with the tumour motion model
     """
     
-
     resample = None #systematic_resample
     dyn_noise = 1
-    obs_noise = 1#1.0
-    w_sigma = 1 #1 or 0.5 seems good
+    obs_noise = 1
+    w_sigma = 1
     output_dim = 1
     obs_dim= 1
     t_step = 0.25
@@ -26,9 +25,9 @@ def loadPF(T=50):
         
     def rand_sin_prior(n):
         x = np.zeros((n,3))
-        #TODO random_sample gives a float [0;1[ so we will never have the max value
+        
         x[:,0] = 8.8 + 15.5 * np.random.uniform(0,1,n)
-        x[:,1] = 0.25 #* np.random.random_sample(size=n)
+        x[:,1] = 1.3 + 2 * np.random.uniform(0,1,n)
         x[:,2] = - 5.8 + 12 * np.random.uniform(0,1,n)
         
         return x
@@ -52,11 +51,11 @@ def loadPF(T=50):
     
     def rand_sin_obs(x, t): 
         return x[:,0] * np.sin(t * x[:,2] * t_step) + x[:,1]
+    
         
     def rand_sin_transf(x, weights, t):
         return (x[:,0] * np.sin(t * x[:,2] * t_step) + x[:,1]).reshape((x.shape[0],output_dim))
     
-
 
     pf = ParticleFilter(
         prior_fn = rand_sin_prior,
@@ -107,7 +106,6 @@ def samplePFSequence(pf,T,numberSamples=2):
     #update the weights to be of size numberSamples
     pf2.weights = np.ones(pf2.particles.shape[0]) / pf2.n_particles
 
-    
     #Create time array:
     ts = [{"t":t} for t in np.linspace(0, T, T)]   
     
@@ -120,7 +118,6 @@ def samplePFSequence(pf,T,numberSamples=2):
     return z, obs, particles
 
     
-
 def corruptPFSequence(observations,sigma):
     return
 
@@ -146,99 +143,38 @@ def PFFilterOne(pf, observation):
     #Create the time array
     ts = [{"t":t} for t in np.linspace(0, pf.T, pf.T)]
     
-    states = apply_filter_old(pf, obs, inputs=ts)
-
-    particles = states["particles"] #z = h(x)
+    states = apply_filter(pf, obs, inputs=ts)
+    
+    transformed_particles = states["particles"] #z = h(x)
     weights = states["weights"]
 
     
-    means = np.zeros((particles.shape[0],particles.shape[2]))
-    #TOCHANGE: here we only take the mean of the first argument (x)
+    means = np.zeros((transformed_particles.shape[0],transformed_particles.shape[2]))
     #particles [T, n_particles, dim_particle]
     for i in range(means.shape[1]):
-        means[:,i] = np.sum(particles[:,:,i] * weights, axis=1)
-        
-    return means#[1:,:]
+        means[:,i] = np.sum(transformed_particles[:,:,i] * weights, axis=1)
+
+    return means
 
 
-#https://github.com/johnhw/pfilter/blob/master/examples/timeseries.ipynb
+
+    
 def apply_filter(pf, ys, inputs=None):
-    """Apply filter pf to a series of observations (time_steps, h)
-        Returns: ["particles":z=h(x), "weights":list of weights]
-        
-        if ys[i] is None then there is no update of the particles for step i
+    """Apply filter pf to a series of observations (time_steps, h)  and return a dictionary:    
+        particles: an array of particles (time_steps, n, d)
+        weights: an array of weights (time_steps,)        
     """
 
     states = []
     pf.init_filter()  # reset
-    
-    #Manually fill states[0] because no update() yet
-    particles = pf.particles
-    weights = pf.weights
-    
-    if pf.transform_fn:
-        
-        if ys[0] is not np.nan:
-            print(ys[0])
-            if inputs is None:
-                hypotheses = pf.observe_fn(particles)
-            else:
-                hypotheses = pf.observe_fn(particles, **inputs)
-            #compute the weights
-            weights =np.clip(
-                weights * np.array(
-                    pf.weight_fn(
-                        hypotheses.reshape(pf.n_particles, -1),
-                        ys[0].reshape(1, -1))), 0, np.inf)
-            #weights normalisation
-            weights = weights/np.sum(weights)
-            
-            if inputs is None:
-                transformed_particles = pf.transform_fn(particles, weights)
-            else:
-                transformed_particles = pf.transform_fn(particles, weights, **inputs[0])
-    else:
-        transformed_particles = particles
-        
-    states.append([transformed_particles, weights])    
-    pf.update(ys[0])
-    
-    #new observation:
-    new_ys = ys[1:]
-        
-    for i,y in enumerate(new_ys):
-        states.append([pf.transformed_particles, np.array(pf.weights)])
+    for i,y in enumerate(ys):
         if inputs is None:
             pf.update(y)
         else:
             pf.update(y, **inputs[i])
-
+            
+        states.append([pf.transformed_particles, np.array(pf.original_weights)])
     return {
         name: np.array([s[i] for s in states])
         for i, name in enumerate(["particles", "weights"])
     }
-    
-    
-def apply_filter_old(pf, ys, inputs=None):
-    """Apply filter pf to a series of observations (time_steps, h)
-        Returns: ["particles":z=h(x), "weights":list of weights]
-        
-        if ys[i] is None then there is no update of the particles for step i
-    """
-
-    states = []
-    pf.init_filter()  # reset
-        
-    for i,y in enumerate(ys):
-        
-        if inputs is None:
-            pf.update(y)
-        else:
-            pf.update(y, **inputs[i])
-            
-        states.append([pf.transformed_particles, np.array(pf.weights)])     
-
-    return {
-        name: np.array([s[i] for s in states])
-        for i, name in enumerate(["particles", "weights"])
-    }  
