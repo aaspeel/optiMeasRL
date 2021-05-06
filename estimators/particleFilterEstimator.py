@@ -18,8 +18,8 @@ class ParticleFilterEstimator(Estimator):
         self._n_dim_state=self._pf.particles.shape[1]
         self._n_dim_meas=self._pf.obs_dim# change of notation
         self._n_dim_obj=self._pf.output_dim
-        #/TOCHANGE
-
+        
+        
         self._seeAction=seeAction
         self._seeMeasurement=seeMeasurement
         self._seeEstimate=seeEstimate
@@ -86,8 +86,8 @@ class ParticleFilterEstimator(Estimator):
     
     def observationsDimensions(self):
         """
-        Facultative
         Return the shape of an obsevation (including the action and the history size).
+        Used by the environment
         """
         sigmaHistorySize=5
         measurementHistorySize=5
@@ -97,11 +97,9 @@ class ParticleFilterEstimator(Estimator):
         if self._seeAction:
             dim.append( (sigmaHistorySize,) )
         if self._seeMeasurement:
-            pass
-            #dim.append( (measurementHistorySize,self._n_dim_meas) )
+            dim.append( (measurementHistorySize,self._n_dim_meas) )
         if self._seeEstimate:
-            pass
-            #dim.append( (estimateHistorySize,self._n_dim_obj) )
+            dim.append( (estimateHistorySize,self._n_dim_obj) )
         if self._seeTime:
             dim.append( (1,) )
         
@@ -116,7 +114,7 @@ class ParticleFilterEstimator(Estimator):
 
         return estimated_objectives
     
-    #TOCHANGE
+
     def generateSequence(self, T, numberSamples=1):
         """
         Facultative, generate sequences for which the estimator is designed.
@@ -124,8 +122,8 @@ class ParticleFilterEstimator(Estimator):
         (objectives,measurements,_)=samplePFSequence(self._pf,T,numberSamples=numberSamples)
         
         return (objectives,measurements)
-    
-    #TOCHANGE
+
+
     def summarize(self):
         """
         Facultative

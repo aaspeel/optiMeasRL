@@ -1,5 +1,6 @@
 import numpy as np
 import numpy.ma as ma
+import math
 
 # return a new function that has the heat kernel (given by delta) applied.
 def make_heat_adjusted(sigma):
@@ -99,9 +100,13 @@ def squared_error(x, y, sigma=1):
 
             summed over all samples. Supports masked arrays.
     """
+    _, obs_dim = y.shape
     dx = (x - y) ** 2
     d = np.ma.sum(dx, axis=1)
-    return np.exp(-d / (2.0 * sigma ** 2))
+
+    const = (2*math.pi*sigma)**(-obs_dim/2)
+    res = const * np.exp(-d / (2.0 * sigma ** 2))
+    return res
 
 
 def gaussian_noise(x, sigmas):
@@ -206,6 +211,8 @@ class ParticleFilter(object):
         obs_noise_fn = None,
         output_dim = 3,
         obs_dim = 3,
+        dyn_noise = 0.1,
+        T = 50,
     ):
         """
         
@@ -271,6 +278,8 @@ class ParticleFilter(object):
         self.obs_noise_fn = obs_noise_fn or identity
         self.output_dim = output_dim
         self.obs_dim = obs_dim
+        self.dyn_noise = dyn_noise
+        self.T = T
 
     def init_filter(self, mask=None):
         """Initialise the filter by drawing samples from the prior.
@@ -311,18 +320,14 @@ class ParticleFilter(object):
             transform_fn(x, **kwargs)
         """
 
-        # apply dynamics and noise
-        self.particles = self.noise_fn(
-            self.dynamics_fn(self.particles, **kwargs), **kwargs
-        )
+
 
         # hypothesise observations (y hat)
-        self.hypotheses = self.observe_fn(self.particles, **kwargs)
+        self.hypotheses = self.obs_noise_fn(self.observe_fn(self.particles, **kwargs))
 
         if observed is not np.nan:
             # compute similarity to observations
             # force to be positive
-
             weights = np.clip(
                 self.weights * np.array(
                     self.weight_fn(
@@ -360,7 +365,8 @@ class ParticleFilter(object):
 
         # preserve current sample set before any replenishment
         self.original_particles = np.array(self.particles)
-
+        self.original_weights = self.weights
+        
         # store mean (expected) hypothesis
         self.mean_hypothesis = np.sum(self.hypotheses.T * self.weights, axis=-1).T
         self.mean_state = np.sum(self.particles.T * self.weights, axis=-1).T
@@ -392,3 +398,8 @@ class ParticleFilter(object):
             )
             self.resampled_particles = random_mask
             self.init_filter(mask=random_mask)
+
+        # apply dynamics and noise                
+        self.particles = self.noise_fn(
+            self.dynamics_fn(self.particles, **kwargs), **kwargs
+        )
