@@ -100,6 +100,7 @@ def samplePFSequence(pf,T,numberSamples=2):
     pf2.n_particles =numberSamples
     pf2.n_eff_threshold = 0
     pf2.resample_proportion = 0
+    #IMPORTANT: the smaller, the smoother the trajectories
     pf2.dyn_noise = 0.1
     
     pf2.init_filter()
@@ -123,38 +124,51 @@ def corruptPFSequence(observations,sigma):
 
 
 def PFFilterAll(pf,observations):
+    """ Estimate for n numberSamples the whole time serie
+    Arguments:
+        - pf: a particleFilter objet
+        - observation: list of shape [n samples,n time steps, obs dim] containing the 
+            observation of the whole time serie for all samples
+    Return:
+        - result: the estimation of the particle filter of shape [n sample,
+            n time step, output_dim]
+    """
+    #TODO change
     (numberSamples,T,_)=np.shape(observations)
 
     result = np.zeros((numberSamples,T, pf.output_dim))
-    
+    #Create time serie
+    ts = [{"t":t} for t in np.linspace(0, T, T)]
     for i in range(numberSamples):
-        result[i,:,:] = PFFilterOne(pf, observations[i])
+        #init filter
+        pf.init_filter()
+        
+        #corrupt observation i:
+        obs = copy.deepcopy(observations[i]) #deepcopy to not corrupt the given list
+        np.place(obs, obs.mask == True, np.nan)
+        result[i,:,:] = apply_filter(pf, obs, inputs=ts)
         
     return result
 
 
-#Return the mean estimation given the observations
-def PFFilterOne(pf, observation):
+def PFFilterOne(pf, observation, time_step):
+    """Estimate one time step TODO
+    Mean in apply filter for One and All
+    Arguments:
+        - pf: a particleFilter objet
+        - observation: list of size one containing the observation of the
+            current time step
+    Return:
+        - mean: estimation of the particle filter (weighted sum of particles)
+    """
     
     #corrupt the observation given its mask and the specific value np.nan
     obs = copy.deepcopy(observation) #deepcopy to not corrupt the given list
     np.place(obs, obs.mask == True, np.nan)
-
     #Create the time array
-    ts = [{"t":t} for t in np.linspace(0, pf.T, pf.T)]
+    ts = [{"t":time_step}] #for t in np.linspace(0, pf.T, pf.T)]
     
-    states = apply_filter(pf, obs, inputs=ts)
-    
-    transformed_particles = states["particles"] #z = h(x)
-    weights = states["weights"]
-
-    
-    means = np.zeros((transformed_particles.shape[0],transformed_particles.shape[2]))
-    #particles [T, n_particles, dim_particle]
-    for i in range(means.shape[1]):
-        means[:,i] = np.sum(transformed_particles[:,:,i] * weights, axis=1)
-
-    return means
+    return apply_filter(pf, obs, inputs=ts)[0]
 
 
 
@@ -166,7 +180,6 @@ def apply_filter(pf, ys, inputs=None):
     """
 
     states = []
-    pf.init_filter()  # reset
     for i,y in enumerate(ys):
         if inputs is None:
             pf.update(y)
@@ -174,7 +187,17 @@ def apply_filter(pf, ys, inputs=None):
             pf.update(y, **inputs[i])
             
         states.append([pf.transformed_particles, np.array(pf.original_weights)])
-    return {
+        
+    states = {
         name: np.array([s[i] for s in states])
         for i, name in enumerate(["particles", "weights"])
     }
+    transformed_particles = states["particles"] #z = h(x)
+    weights = states["weights"]    
+    
+    means = np.zeros((transformed_particles.shape[0],transformed_particles.shape[2]))
+    #particles [T, n_particles, dim_particle]
+    for i in range(means.shape[1]):
+        means[:,i] = np.sum(transformed_particles[:,:,i] * weights, axis=1)
+
+    return means

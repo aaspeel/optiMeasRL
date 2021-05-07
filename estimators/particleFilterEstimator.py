@@ -44,13 +44,12 @@ class ParticleFilterEstimator(Estimator):
         self._time=-1
     
     
-    #Estimation for one serie
+    #Estimation for one time step
     def estimate(self,measurement_corrupted):
         """
-        Return the estimate from corrupted informations.
+        Return the estimate from possibly corrupted information.
         """
-        # compute the estimate and update the internal state for Kalman filtering
-        current_objective_est = PFFilterOne(self._pf, measurement_corrupted.reshape(-1))
+        current_objective_est = PFFilterOne(self._pf, measurement_corrupted.reshape(-1), self._time+1)
 
         
         
