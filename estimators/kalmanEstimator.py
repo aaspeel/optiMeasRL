@@ -48,7 +48,7 @@ class KalmanEstimator(Estimator):
         self._filtered_state, self._filtered_state_covariance, current_objective_est, _ = KFFilterOne(self._kf, measurement_corrupted.reshape(-1), state_mean=self._filtered_state, state_mean_covariance=self._filtered_state_covariance)
         
         # storage for observation
-        if measurement_corrupted.mask[0]: # masked
+        if measurement_corrupted.mask[0,0,0]: # masked
             self._last_action=0
         else:
             self._last_action=1
