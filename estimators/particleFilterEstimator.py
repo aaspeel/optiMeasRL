@@ -1,5 +1,5 @@
 """ 
-Class kalmanEstimator
+Class particleEstimator
 """
 
 from estimators.estimator import Estimator
@@ -51,8 +51,6 @@ class ParticleFilterEstimator(Estimator):
         """
         current_objective_est = PFFilterOne(self._pf, measurement_corrupted.reshape(-1), self._time+1)
 
-        
-        
         # storage for observation
         if measurement_corrupted.mask[0]: # masked
             self._last_action=0
@@ -88,9 +86,9 @@ class ParticleFilterEstimator(Estimator):
         Return the shape of an obsevation (including the action and the history size).
         Used by the environment
         """
-        sigmaHistorySize=5
-        measurementHistorySize=5
-        estimateHistorySize=5
+        sigmaHistorySize=12 # T-1
+        measurementHistorySize=12 # T-1
+        estimateHistorySize=12 # T-1
         
         dim=[]
         if self._seeAction:

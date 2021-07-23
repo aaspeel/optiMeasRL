@@ -38,18 +38,21 @@ def plotExperiment(objectives,estimates,sigmas,idx_sample=0,idx_objective=0):
     pyplot.show()
     
 def boxplotErrors(objectives,estimates):
+    T=np.shape(estimates)[1]
+    print('T:',T)
     errors=objectives-estimates
     squareErrorNorms=np.square(errors).sum(axis=2)
     pyplot.title('Square error norm')
-    pyplot.boxplot(squareErrorNorms)
+    pyplot.boxplot(squareErrorNorms,positions=range(0,T))
     pyplot.xlabel('Time t')
     pyplot.ylabel('Square error norm')
     #pyplot.legend()
     pyplot.show()
     
 def boxplotRewards(rewards):
+    T=np.shape(rewards)[1]
     pyplot.title('Reward')
-    pyplot.boxplot(rewards)
+    pyplot.boxplot(rewards,positions=range(0,T))
     pyplot.xlabel('Time t')
     pyplot.ylabel('Reward r(t)')
     #pyplot.legend()
@@ -57,7 +60,6 @@ def boxplotRewards(rewards):
     
 def boxplotCumulatedRewards(cumulatedRewards):
     cumulatedRewards=np.array(cumulatedRewards)
-    
     pyplot.title('Cumulated reward')
     pyplot.boxplot(cumulatedRewards.transpose())
     pyplot.xlabel('Epoch')
@@ -66,8 +68,9 @@ def boxplotCumulatedRewards(cumulatedRewards):
     pyplot.show()
     
 def boxplotSigmas(sigmas):
+    (_,T)=np.shape(sigmas)
     pyplot.title('Sigma')
-    pyplot.boxplot(sigmas)
+    pyplot.boxplot(sigmas,positions=range(0,T))
     pyplot.xlabel('Time t')
     pyplot.ylabel('Actions sigma(t)')
     #pyplot.legend()
@@ -77,7 +80,7 @@ def freqSigmas(sigmas):
     (_,T)=np.shape(sigmas)
     freq=np.mean(sigmas,axis=0)
     pyplot.title('Frequency')
-    pyplot.plot(range(1,T+1),freq,marker='o')
+    pyplot.plot(range(0,T),freq,marker='o')
     pyplot.xlabel('Time t')
     pyplot.ylabel('sigma(t)')
     pyplot.show()
@@ -110,7 +113,7 @@ def plotAllCumulatedRewards(cumulatedRewards):
     meanCumulatedRewards=cumulatedRewards.mean(axis=1)
     
     pyplot.title('Cumulated reward')
-    pyplot.plot(range(1,n_epochs+1),cumulatedRewards, color='blue',alpha=0.2)
+    #pyplot.plot(range(1,n_epochs+1),cumulatedRewards, color='blue',alpha=0.2)
     pyplot.plot(range(1,n_epochs+1),meanCumulatedRewards,color='black',label='Mean')
     pyplot.xlabel('Epoch')
     pyplot.ylabel('Cumulated reward')

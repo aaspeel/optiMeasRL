@@ -2,8 +2,6 @@
 Class rnnEstimator
 """
 
-import numpy as np
-
 from estimators.estimator import Estimator
 from utils.sequences_treatment import generateSequence
 
@@ -20,7 +18,7 @@ class RnnEstimator(Estimator):
         """
         # Could be nice to add defaults values for model and generatorType (but not easy)
         
-        self._n_dim_meas=model._feed_input_shapes[0][2]-1 # we don't count sigma
+        self._n_dim_meas=model._feed_input_shapes[0][2]
         self._n_dim_obj=model._feed_output_shapes[0][2]
         
         self._model_stateless=model # store estimateAll() and possible re-training of the model
@@ -52,22 +50,18 @@ class RnnEstimator(Estimator):
         
     def estimate(self,measurement_corrupted):
         """
-        Return the estimate from corrupted measurement.
-        measurement_corrupted.shape=(1,1,n_dim_meas)
+        Return the estimate from corrupted informations.
         """
-        sigma=1-measurement_corrupted.mask[0,0,0]
-        measurement_corrupted_outOfRange=measurement_corrupted.filled(self._outOfRangeValue)
-        
-        # input of the rnn is the sigma and the corrupted measurement
-        inputRNN=np.concatenate(([[[sigma]]],measurement_corrupted_outOfRange),axis=2)
-        
         # convert the corruption with mask to a corruption with outOfRangeValue
-        current_objective_est=self._model.predict(inputRNN)
+        current_objective_est=self._model.predict(measurement_corrupted.filled(self._outOfRangeValue))
         
         # storage for observation
-        self._last_action=sigma  
+        if measurement_corrupted.mask[0]: # masked
+            self._last_action=0
+        else:
+            self._last_action=1
         self._last_estimate=current_objective_est
-        self._last_measurement_outOfRange=measurement_corrupted_outOfRange
+        self._last_measurement_outOfRange=measurement_corrupted.filled(self.outOfRangeValue())
         self._time+=1
         
         return current_objective_est
@@ -93,9 +87,9 @@ class RnnEstimator(Estimator):
         Facultative
         Return the shape of an obsevation (including the action and the history size).
         """
-        sigmaHistorySize=5
-        measurementHistorySize=5
-        estimateHistorySize=5
+        sigmaHistorySize=12 # T-1
+        measurementHistorySize=12 # T-1
+        estimateHistorySize=12 # T-1
         
         dim=[]
         if self._seeAction:
@@ -115,11 +109,8 @@ class RnnEstimator(Estimator):
         Return the estimate from corrupted informations.
         """
         # convert the corruption with mask to a corruption with outOfRangeValue
-        sigmas=1-measurements_corrupted.mask # has 3 dimensions
-        inputRNN=np.concatenate( (sigmas,measurements_corrupted.filled(self._outOfRangeValue)) ,axis=2)
-        
-        objectives_est=self._model_stateless.predict(inputRNN)
-        return objectives_est
+        objectives_pred=self._model_stateless.predict(measurements_corrupted.filled(self.outOfRangeValue()))
+        return objectives_pred
     
     
     def outOfRangeValue(self):
@@ -144,7 +135,6 @@ class RnnEstimator(Estimator):
         Print a summary of the predictor.
         """
         print('RNN estimator')
-        print('  generatorType:',self._generatorType)
         print('  observationsDimensions:',self.observationsDimensions())
         print('  seeAction=',self._seeAction)
         print('  seeMeasurement=',self._seeMeasurement)

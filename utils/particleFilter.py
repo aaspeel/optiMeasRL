@@ -3,7 +3,76 @@ import numpy as np
 import copy
 from math import sin
 
+
 def loadPF(T=50):
+    """ Create a particle filter with a particular model
+    """
+    
+    #return loadPF_tumor(T=T)
+    return loadPF_benchmark(T=T)
+
+def loadPF_benchmark(T=50):
+    """ Create a particle filter with the tumour motion model
+    """
+    resample = None #systematic_resample
+    dyn_noise = 1
+    w_sigma = dyn_noise # for weighting
+    output_dim = 1
+    obs_dim = 1
+    t_step = 1
+    
+    def prior_fn(n):
+        return np.random.normal(0,5,n).reshape((n,1))
+    
+    def dynamics_fn(x, t):
+        """
+        fn
+        x: 4D array [a,b,omega, t]
+        """
+        #Apply Gaussian noise on the 'real state' and update the time
+        x = x/2 + 25*x/(1+x**2)+8*np.cos(1.2*t)
+        return x
+    
+    def noise_fn(x, **kwargs):
+        return x + np.random.normal(0, dyn_noise, x.shape) # add noise (not on the time variable)
+    
+    def observe_fn(x, **kwargs): 
+        return x**2/20
+    
+    def obs_noise_fn(x, t):
+        std=np.sin(0.25*t)+2
+        return (x + np.random.normal(0, std, x.shape))#.reshape((x.shape[0],obs_dim))
+    
+    def weight(x, y, t):
+        std = np.sin(0.25*t)+2
+        return squared_error(x, y, sigma=std)
+        
+    def transform_fn(x, weights, **kwargs):
+        return x
+
+    pf = ParticleFilter(
+        prior_fn = prior_fn,
+        observe_fn = observe_fn,
+        resample_fn = resample,
+        n_particles=100,
+        dynamics_fn=dynamics_fn,
+        noise_fn=noise_fn,
+        weight_fn=weight,
+        resample_proportion=0.01,
+        column_names=None,
+        internal_weight_fn=None,
+        transform_fn=transform_fn,
+        n_eff_threshold=1.0,
+        obs_noise_fn = obs_noise_fn,
+        output_dim = output_dim,
+        obs_dim = obs_dim,
+        dyn_noise = dyn_noise,
+        T=T,
+    )
+    
+    return pf
+
+def loadPF_tumor(T=50):
     """ Create a particle filter with the tumour motion model
     """
     
@@ -19,7 +88,6 @@ def loadPF(T=50):
     weight = lambda x,y, **kwargs : squared_error(x, y, sigma=w_sigma)
     
     def obs_noise_fn(x, **kwargs):
-        
         return (x + np.random.normal(0, obs_noise, obs_dim)).reshape((x.shape[0],obs_dim))
         
         
@@ -45,9 +113,7 @@ def loadPF(T=50):
         x[:,0] = np.clip(x[:,0],8.8, 24) #8.8mm <= a <= 24mm
         x[:,1] = np.clip(x[:,1], -5.8, 5.8) #-5.8mm <= b <= 5.8mm
         
-        
         return x
-    
     
     def rand_sin_obs(x, t): 
         return x[:,0] * np.sin(t * x[:,2] * t_step) + x[:,1]
@@ -61,7 +127,7 @@ def loadPF(T=50):
         prior_fn = rand_sin_prior,
         observe_fn=rand_sin_obs,
         resample_fn=resample,
-        n_particles=1000,
+        n_particles=100,
         dynamics_fn=rand_sin_dyn,
         noise_fn=noise_f,
         weight_fn=weight,
@@ -79,7 +145,6 @@ def loadPF(T=50):
     
     return pf
 
-
 def samplePFSequence(pf,T,numberSamples=2):
     """ 
     Return an array with [z,obs,part] where
@@ -93,11 +158,10 @@ def samplePFSequence(pf,T,numberSamples=2):
     obs = np.zeros((numberSamples,T,pf.obs_dim))
     particles = np.zeros((numberSamples,T,pf.particles.shape[1]))
 
-    
     #Create a copy of pf and change the number of particles to match numberSample
     #because we want each particle to give a trajectory
     pf2 = copy.deepcopy(pf)
-    pf2.n_particles =numberSamples
+    pf2.n_particles = numberSamples
     pf2.n_eff_threshold = 0
     pf2.resample_proportion = 0
     #IMPORTANT: the smaller, the smoother the trajectories
@@ -113,14 +177,10 @@ def samplePFSequence(pf,T,numberSamples=2):
     for i in range(0,T):
         pf2.update(**ts[i])
         z[:,i,:] = pf2.transformed_particles
-        obs[:,i,:] = pf2.obs_noise_fn(pf2.hypotheses)
+        obs[:,i,:] = pf2.obs_noise_fn(pf2.hypotheses,**ts[i])
         particles[:,i,:] = pf2.particles
     
     return z, obs, particles
-
-    
-def corruptPFSequence(observations,sigma):
-    return
 
 
 def PFFilterAll(pf,observations):
@@ -138,21 +198,21 @@ def PFFilterAll(pf,observations):
 
     result = np.zeros((numberSamples,T, pf.output_dim))
     #Create time serie
-    ts = [{"t":t} for t in np.linspace(0, T, T)]
+    ts = [{"t":t} for t in np.linspace(0, T-1, T)]
     for i in range(numberSamples):
         #init filter
         pf.init_filter()
         
         #corrupt observation i:
         obs = copy.deepcopy(observations[i]) #deepcopy to not corrupt the given list
-        np.place(obs, obs.mask == True, np.nan)
-        result[i,:,:] = apply_filter(pf, obs, inputs=ts)
+        np.place(obs, obs.mask == True, np.nan) # replace the masked values by nans because it is the convention used by pfilter
+        result[i,:,:] = _apply_filter(pf, obs, inputs=ts)
         
     return result
 
 
 def PFFilterOne(pf, observation, time_step):
-    """Estimate one time step TODO
+    """Estimate one time step. Observation is a masked array.
     Mean in apply filter for One and All
     Arguments:
         - pf: a particleFilter objet
@@ -168,15 +228,15 @@ def PFFilterOne(pf, observation, time_step):
     #Create the time array
     ts = [{"t":time_step}] #for t in np.linspace(0, pf.T, pf.T)]
     
-    return apply_filter(pf, obs, inputs=ts)[0]
+    return _apply_filter(pf, obs, inputs=ts)[0]
 
-
-
-    
-def apply_filter(pf, ys, inputs=None):
-    """Apply filter pf to a series of observations (time_steps, h)  and return a dictionary:    
+def _apply_filter(pf, ys, inputs=None):
+    """
+    Apply the particle filter over mutliple time steps (depending on the size of ys). The filter is not initialized
+    Missing measurements in ys must be nan.
+    Apply filter pf to a series of observations (time_steps, h) and return a dictionary:
         particles: an array of particles (time_steps, n, d)
-        weights: an array of weights (time_steps,)        
+        weights: an array of weights (time_steps,)
     """
 
     states = []

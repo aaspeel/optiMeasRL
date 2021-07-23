@@ -7,17 +7,20 @@ import pylab as pl
 from pykalman import KalmanFilter
 
 def loadKF():
-    # specify parameters
+# specify parameters
     random_state = np.random.RandomState(0)
     
-    transition_matrix = [[1, 0.1], [0, 1]]
-    observation_matrix = np.eye(2) + random_state.randn(2, 2) * 0.1 # [[1,0]] + random_state.randn(1, 2) * 0.1
-    objective_matrix = [[1, 0], [0, 1]] # Added by A. Aspeel
+    delta=0.5
     
-    transition_covariance = [[10,0],[0,10]]
-    observation_covariance = [[1,0],[0,1]] # 0.00001
+    transition_matrix = [[np.cos(delta), np.sin(delta)], [-np.sin(delta), np.cos(delta)]]
+    observation_matrix = [[1,0]]
+    objective_matrix = [[1,0]] # Added by A. Aspeel
     
-    initial_state_mean = [5, -5]
+    transition_covariance = [[1/80*( delta-np.sin(delta)*np.cos(delta) ) , 1/80*np.sin(delta)**2] , [-1/80*np.sin(delta)**2 , 1/80*( delta+np.sin(delta)*np.cos(delta) )]]
+    
+    observation_covariance = [[1]] #[[1,0],[0,1]]
+    
+    initial_state_mean = [0, 1]
     initial_state_covariance = [[1,0],[0,1]]
     
     kf = KalmanFilter(

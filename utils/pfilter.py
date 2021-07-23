@@ -297,8 +297,7 @@ class ParticleFilter(object):
             self.particles = new_sample
         else:
             self.particles[mask, :] = new_sample[mask, :]
-            
-            
+
             
     def update(self, observed=np.nan, **kwargs):
         """Update the state of the particle filter given an observation.
@@ -323,7 +322,8 @@ class ParticleFilter(object):
 
 
         # hypothesise observations (y hat)
-        self.hypotheses = self.obs_noise_fn(self.observe_fn(self.particles, **kwargs))
+        #self.hypotheses = self.obs_noise_fn(self.observe_fn(self.particles, **kwargs))
+        self.hypotheses = self.obs_noise_fn(self.observe_fn(self.particles, **kwargs), **kwargs) 
 
         if observed is not np.nan:
             # compute similarity to observations

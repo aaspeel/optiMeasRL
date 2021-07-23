@@ -38,7 +38,11 @@ def constructAgent(estimator,rewarder,objectives_train,measurements_train,object
     # During training epochs, we want to train the agent after every action it takes.
     # Plus, we also want to display after each training episode (!= than after every training) the average bellman
     # residual and the average of the V values obtained during the last episode.
-    agent.attach(bc.TrainerController(periodicity=1,evaluate_on='action'))
+    agent.attach(bc.TrainerController(
+        periodicity=1,
+        evaluate_on='episode',
+        show_episode_avg_V_value=False, # show V value
+        show_avg_Bellman_residual=False)) # show average training loss
 
     # All previous controllers control the agent during the epochs it goes through. However, we want to interleave a 
     # "test epoch" between each training epoch ("one of two epochs", hence the periodicity=2). We do not want these 
@@ -54,8 +58,8 @@ def constructAgent(estimator,rewarder,objectives_train,measurements_train,object
     agent.attach(InterleavedValidEpochController(
         id=0, # mode
         epoch_length=numberSamples_valid*T_valid,
-        periodicity=1,
-        show_score=True,
+        periodicity=1, #  “1 test epoch on [periodicity] epochs”. Minimum value: 2.
+        show_score=True, # True
         summarize_every=1))
     
     return agent

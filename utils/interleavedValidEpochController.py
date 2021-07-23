@@ -39,47 +39,84 @@ class InterleavedValidEpochController(Controller):
         self._currentlyValidating = False
         self.scores = []
         self.rewards = [] # cumulated rewards
-
+        
+        # by default, self._modes = [-1]
+        
         
     def onStart(self, agent):
+        #print('onStart: call')
         if (self._active == False) or (agent.mode() not in self._modes):
+            #print(' onStart: quit directly')
+            #if (self._active == False):
+                #print('     inactive')
+            #if (agent.mode() not in self._modes):
+                #print('     not in modes')
             return
+        #print(' onStart: in')
 
         self._epoch_count = 0
         self.rewards = []
         
+        #print(' onStart: out')
+        
         
     def onEpisodeEnd(self, agent, is_terminal, lastReward):
+        #print('onEpisodeEnd: call')
         if (self._currentlyValidating == False):
+            #print(' onEpisodeEnd: quit directly (not validating)')
             return
+        #print(' onEpisodeEnd: in (currentlyValidating=',self._currentlyValidating,')')
         
         rewardEpisode = agent._total_mode_reward - sum(self._rewardsCurrentEpoch)
         self._rewardsCurrentEpoch.append(rewardEpisode.copy()) # store the content and not the pointer
         #print('In interleavedValidEpochController.onEpisodeEnd:\n self._epoch_count=', self._epoch_count, 'agent._mode=', agent._mode)
+        #print('          rewardEpisode=',rewardEpisode)
+        
+        #print(' onEpisodeEnd: out')
         
 
     def onEpochEnd(self, agent):
+        #print('onEpochEnd: call')
         if (self._active == False) or (agent.mode() not in self._modes) or (self._currentlyValidating == True):
+            #print(' onEpochEnd: quit directly')
+            #if (self._active == False):
+                #print('     inactive')
+            #if (agent.mode() not in self._modes):
+                #print('     not in _modes')
+            #if (self._currentlyValidating == True):
+                #print('     currently validating')
             return
+        #print(' onEpochEnd: in (epoch count=',self._epoch_count,')')
 
         mod = self._epoch_count % self._periodicity
         self._epoch_count += 1
         if mod == 0:
+            #print(' modulo: in')
             #print('In myController.onEpochEnd:\n   self._epoch_count=',self._epoch_count, 'agent._mode=',agent._mode,'\n')
             self._currentlyValidating = True
             self._rewardsCurrentEpoch = []
             agent.startMode(self._id, self._epoch_length) # agent._total_mode_reward is reset to 0
+            #print()
+            #print('-------------------------')
+            print("Validation epoch running... ", end="")
             agent._run_non_train(n_epochs=1, epoch_length=self._epoch_length)
+            print('Done.')
+            #print('-------------------------')
+            #print()
             self._summary_counter += 1
 
             if self._show_score:
+                #print('   show_score: in')
                 score,nbr_episodes=agent.totalRewardOverLastTest()
-                print("Testing score per episode (id: {}) is {} (average over {} episode(s))".format(self._id, score, nbr_episodes))
+                print("  Testing score per episode (id: {}) is {} (average over {} episode(s))".format(self._id, score, nbr_episodes))
                 self.scores.append(score)
             if self._summary_periodicity > 0 and self._summary_counter % self._summary_periodicity == 0:
+                #print('   summarize: in')
                 agent.summarizeTestPerformance()
             agent.resumeTrainingMode()
             self.rewards.append(self._rewardsCurrentEpoch)
             self._currentlyValidating = False
+            
+        #print(' onEpochEnd: out (agent._mode:',agent._mode,')')
             
 
