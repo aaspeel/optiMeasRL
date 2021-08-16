@@ -15,6 +15,7 @@ import deer.experiment.base_controllers as bc
 # import personal controller
 from utils.interleavedValidEpochController import InterleavedValidEpochController
 
+from utils.agentNetwork import AgentNetwork
 
 def constructAgent(estimator,rewarder,objectives_train,measurements_train,objectives_valid,measurements_valid):
     """
@@ -24,8 +25,10 @@ def constructAgent(estimator,rewarder,objectives_train,measurements_train,object
     
     rng=np.random.RandomState(123456)
     env=OptimalIntermittency(estimator,rewarder,objectives_train,measurements_train,objectives_valid,measurements_valid,rng)
-    qnetwork=MyQNetwork(environment=env,random_state=rng)
+    qnetwork=MyQNetwork(environment=env,random_state=rng, neural_network=AgentNetwork)
     agent=NeuralAgent(env,qnetwork,random_state=rng)
+    
+    #agent.setDiscountFactor(1.0)
 
     # load agent
     #agent.setNetwork('../../myFolder/myModels/retrainedAgent_KF')

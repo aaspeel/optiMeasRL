@@ -4,6 +4,7 @@ Class rnnEstimator
 
 from estimators.estimator import Estimator
 from utils.sequences_treatment import generateSequence
+import numpy as np
 
 # used in function convert_to_inference_model
 import json
@@ -18,7 +19,7 @@ class RnnEstimator(Estimator):
         """
         # Could be nice to add defaults values for model and generatorType (but not easy)
         
-        self._n_dim_meas=model._feed_input_shapes[0][2]
+        self._n_dim_meas=model._feed_input_shapes[0][2]-1 # we don't count sigma
         self._n_dim_obj=model._feed_output_shapes[0][2]
         
         self._model_stateless=model # store estimateAll() and possible re-training of the model
@@ -50,21 +51,42 @@ class RnnEstimator(Estimator):
         
     def estimate(self,measurement_corrupted):
         """
-        Return the estimate from corrupted informations.
+        Return the estimate from corrupted measurements.
+        measurement_corrupted.shape=(1,1,n_dim_meas)
         """
+        
+        sigma=1-measurement_corrupted.mask[0,0,0]
+        measurement_corrupted_outOfRange=measurement_corrupted.filled(self._outOfRangeValue)
+        
+        # input of the rnn is the sigma and the corrupted measurement
+        inputRNN=np.concatenate(([[[sigma]]],measurement_corrupted_outOfRange),axis=2)
+        
         # convert the corruption with mask to a corruption with outOfRangeValue
-        current_objective_est=self._model.predict(measurement_corrupted.filled(self._outOfRangeValue))
+        current_objective_est=self._model.predict(inputRNN)
         
         # storage for observation
-        if measurement_corrupted.mask[0]: # masked
-            self._last_action=0
-        else:
-            self._last_action=1
+        self._last_action=sigma  
         self._last_estimate=current_objective_est
-        self._last_measurement_outOfRange=measurement_corrupted.filled(self.outOfRangeValue())
+        self._last_measurement_outOfRange=measurement_corrupted_outOfRange
         self._time+=1
         
         return current_objective_est
+        
+        #################
+        
+        # convert the corruption with mask to a corruption with outOfRangeValue
+        #current_objective_est=self._model.predict(measurement_corrupted.filled(self._outOfRangeValue))
+        
+        # storage for observation
+        #if measurement_corrupted.mask[0]: # masked
+        #    self._last_action=0
+        #else:
+        #    self._last_action=1
+        #self._last_estimate=current_objective_est
+        #self._last_measurement_outOfRange=measurement_corrupted.filled(self.outOfRangeValue())
+        #self._time+=1
+        
+        #return current_objective_est
     
     def observe(self):
         """
