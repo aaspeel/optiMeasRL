@@ -23,10 +23,12 @@ def constructAgent(estimator,rewarder,objectives_train,measurements_train,object
     """
     (numberSamples_valid,T_valid,_)=np.shape(objectives_valid)
     
+    batch_size=10
+    
     rng=np.random.RandomState(123456)
     env=OptimalIntermittency(estimator,rewarder,objectives_train,measurements_train,objectives_valid,measurements_valid,rng)
-    qnetwork=MyQNetwork(environment=env,random_state=rng, neural_network=AgentNetwork)
-    agent=NeuralAgent(env,qnetwork,random_state=rng)
+    qnetwork=MyQNetwork(environment=env, random_state=rng, batch_size=batch_size, neural_network=AgentNetwork)
+    agent=NeuralAgent(env, qnetwork, batch_size=batch_size, random_state=rng)
     
     #agent.setDiscountFactor(1.0)
 
@@ -43,7 +45,7 @@ def constructAgent(estimator,rewarder,objectives_train,measurements_train,object
     # residual and the average of the V values obtained during the last episode.
     agent.attach(bc.TrainerController(
         periodicity=1,
-        evaluate_on='episode',
+        evaluate_on='action',
         show_episode_avg_V_value=False, # show V value
         show_avg_Bellman_residual=False)) # show average training loss
 

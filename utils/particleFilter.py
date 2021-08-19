@@ -9,7 +9,7 @@ def loadPF(T=50):
     """
     
     #return loadPF_tumor(T=T)
-    return loadPF_benchmark(T=T)
+    return loadPF_tumor(T=T)
 
 def loadPF_benchmark(T=50):
     """ Create a particle filter with the tumour motion model
