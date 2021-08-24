@@ -7,7 +7,8 @@ from utils.particleFilter import *
 
 class ParticleFilterEstimator(Estimator):
     
-    def __init__(self,seeAction=True,seeMeasurement=True,seeEstimate=False,seeTime=False):
+    def __init__(self, T, windowSize, threshold, seeAction=True,seeMeasurement=True,
+                 seeEstimate=False,seeTime=False, seeSumAction=False):
         """
         Construct the estimator.
         """
@@ -24,6 +25,11 @@ class ParticleFilterEstimator(Estimator):
         self._seeMeasurement=seeMeasurement
         self._seeEstimate=seeEstimate
         self._seeTime=seeTime
+        self._seeSumAction = seeSumAction
+        
+        self._windowSize = windowSize
+        self._threshold = threshold
+        self._T = T
         
         self.reset()
     
@@ -42,7 +48,8 @@ class ParticleFilterEstimator(Estimator):
         self._last_estimate=self._n_dim_obj*[self.outOfRangeValue()] # could be different
         
         self._time=-1
-    
+        self._action_history = []
+        self._sumAction = 0
     
     #Estimation for one time step
     def estimate(self,measurement_corrupted):
@@ -61,6 +68,14 @@ class ParticleFilterEstimator(Estimator):
         self._last_estimate=current_objective_est
         self._time+=1
         
+        if len(self._action_history) < self._windowSize:
+            self._action_history.append(self._last_action)
+        else:
+            del(self._action_history[0])
+            self._action_history.append(self._last_action)
+        
+        self._sumAction = sum(self._action_history)/self._threshold
+        
         return current_objective_est
     
     
@@ -76,7 +91,9 @@ class ParticleFilterEstimator(Estimator):
         if self._seeEstimate:
             observation.append( self._last_estimate )
         if self._seeTime:
-            observation.append( 1-1/(self._time+2) ) # to represent the current time in [0,1[
+            observation.append( self._time/self._T ) # to represent the current time in [0,1[
+        if self._seeSumAction:
+            observation.append( self._sumAction)
         
         return observation
     
@@ -98,6 +115,8 @@ class ParticleFilterEstimator(Estimator):
         if self._seeEstimate:
             dim.append( (estimateHistorySize,self._n_dim_obj) )
         if self._seeTime:
+            dim.append( (1,) )
+        if self._seeSumAction:
             dim.append( (1,) )
         
         return dim
@@ -132,5 +151,6 @@ class ParticleFilterEstimator(Estimator):
         print('  seeMeasurement=',self._seeMeasurement)
         print('  seeEstimate=',self._seeEstimate)
         print('  seeTime=',self._seeTime)
+        print('  seeSumAction=', self._seeSumAction)
         
     

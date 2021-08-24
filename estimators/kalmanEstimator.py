@@ -7,7 +7,7 @@ from utils.linear_systems import *
 
 class KalmanEstimator(Estimator):
     
-    def __init__(self,seeAction=True,seeMeasurement=True,seeEstimate=False,seeTime=False,seeCovariance=False):
+    def __init__(self, T, windowSize, threshold, seeAction=True,seeMeasurement=True,seeEstimate=False,seeTime=False,seeCovariance=False, seeSumAction=False):
         """
         Construct the estimator.
         """
@@ -22,6 +22,12 @@ class KalmanEstimator(Estimator):
         self._seeEstimate=seeEstimate
         self._seeTime=seeTime
         self._seeCovariance=seeCovariance
+        self._seeSumAction = seeSumAction
+        
+        self._windowSize = windowSize
+        self._threshold = threshold
+        self._T = T
+        
         
         self.reset()
     
@@ -35,9 +41,11 @@ class KalmanEstimator(Estimator):
         
         # reset observations
         self._last_action=0
+        self._action_history = []
         self._last_measurement_outOfRange=self._n_dim_meas*[self.outOfRangeValue()]
         self._last_estimate=self._n_dim_obj*[self.outOfRangeValue()] # could be different
         self._time=-1
+        self._sumAction = 0
     
     
     def estimate(self,measurement_corrupted):
@@ -55,6 +63,15 @@ class KalmanEstimator(Estimator):
         self._last_measurement_outOfRange=measurement_corrupted.filled(self.outOfRangeValue())
         self._last_estimate=current_objective_est
         self._time+=1
+        self._sumAction = self._last_measurement_outOfRange
+        
+        if len(self._action_history) < self._windowSize:
+            self._action_history.append(self._last_action)
+        else:
+            del(self._action_history[0])
+            self._action_history.append(self._last_action)
+        
+        self._sumAction = sum(self._action_history)/self._threshold
         
         return current_objective_est
     
@@ -63,7 +80,7 @@ class KalmanEstimator(Estimator):
         """
         Return an observation to help the reinforcement learning agent.
         """
-        observation=[]
+        observation=[] 
         if self._seeAction:
             observation.append( self._last_action )
         if self._seeMeasurement:
@@ -71,7 +88,9 @@ class KalmanEstimator(Estimator):
         if self._seeEstimate:
             observation.append( self._last_estimate )
         if self._seeTime:
-            observation.append( 1-1/(self._time+2) ) # 1-1/(self._time+2) to represent the current time in [0,1[
+            observation.append( self._time/T ) # 1-1/(self._time+2) to represent the current time in [0,1[
+        if self._seeSumAction:
+            observation.append( self._sumAction)
         if self._seeCovariance:
             pass
         
@@ -96,8 +115,11 @@ class KalmanEstimator(Estimator):
             dim.append( (estimateHistorySize,self._n_dim_obj) )
         if self._seeTime:
             dim.append( (1,) )
+        if self._seeSumAction:
+            dim.append( (1,) )
         if self._seeCovariance:
             print('Option to see covariance not implemented')
+        
         
         return dim
     
@@ -131,5 +153,6 @@ class KalmanEstimator(Estimator):
         print('  seeEstimate=',self._seeEstimate)
         print('  seeTime=',self._seeTime)
         print('  seeCovariance=',self._seeCovariance)
+        print('  seeSumAction=', self._seeSumAction)
         
     

@@ -5,6 +5,7 @@ Class rnnEstimator
 from estimators.estimator import Estimator
 from utils.sequences_treatment import generateSequence
 import numpy as np
+import tensorflow as tf
 
 # used in function convert_to_inference_model
 import json
@@ -12,15 +13,18 @@ from keras.models import model_from_json
 
 class RnnEstimator(Estimator):
     
-    def __init__(self,model,generatorType,outOfRangeValue=-1,seeAction=True,seeMeasurement=True,seeEstimate=False,seeTime=False):
+    def __init__(self, T, windowSize, threshold,model,generatorType,outOfRangeValue=-1,
+                 seeAction=True,seeMeasurement=True,seeEstimate=False,seeTime=False, seeSumAction=False):
         """
         Construct the estimator.
         model and generatorType must have compatible dimensions
         """
         # Could be nice to add defaults values for model and generatorType (but not easy)
         
-        self._n_dim_meas=model._feed_input_shapes[0][2]-1 # we don't count sigma
-        self._n_dim_obj=model._feed_output_shapes[0][2]
+        #self._n_dim_meas=model._feed_input_shapes[0][2]-1 # we don't count sigma
+        self._n_dim_meas = model.layers[0].input_shape[2] - 1 # we don't count sigma
+        self._n_dim_obj = model.layers[-1].output_shape[2]
+        #self._n_dim_obj=model._feed_output_shapes[0][2]
         
         self._model_stateless=model # store estimateAll() and possible re-training of the model
         
@@ -34,6 +38,10 @@ class RnnEstimator(Estimator):
         self._seeMeasurement=seeMeasurement
         self._seeEstimate=seeEstimate
         self._seeTime=seeTime
+        self._seeSumAction = seeSumAction
+        
+        self._windowSize = windowSize
+        self._threshold = threshold
         
         self.reset()
         
@@ -48,6 +56,8 @@ class RnnEstimator(Estimator):
         self._last_measurement_outOfRange=self._n_dim_meas*[self.outOfRangeValue()]
         self._last_estimate=self._n_dim_obj*[self.outOfRangeValue()] # could be different
         self._time=-1
+        self._action_history = []
+        self._sumAction = 0
         
     def estimate(self,measurement_corrupted):
         """
@@ -60,15 +70,22 @@ class RnnEstimator(Estimator):
         
         # input of the rnn is the sigma and the corrupted measurement
         inputRNN=np.concatenate(([[[sigma]]],measurement_corrupted_outOfRange),axis=2)
-        
         # convert the corruption with mask to a corruption with outOfRangeValue
-        current_objective_est=self._model.predict(inputRNN)
+        current_objective_est=self._model.predict(tensor_input)
         
         # storage for observation
         self._last_action=sigma  
         self._last_estimate=current_objective_est
         self._last_measurement_outOfRange=measurement_corrupted_outOfRange
         self._time+=1
+        
+        if len(self._action_history) < self._windowSize:
+            self._action_history.append(self._last_action)
+        else:
+            del(self._action_history[0])
+            self._action_history.append(self._last_action)
+        
+        self._sumAction = sum(self._action_history)/self._threshold
         
         return current_objective_est
         
@@ -101,6 +118,8 @@ class RnnEstimator(Estimator):
             observation.append( self._last_estimate )
         if self._seeTime:
             observation.append( 1-1/(self._time+2) ) # to represent the current time in [0,1[
+        if self._seeSumAction:
+            observation.append( self._sumAction)
         
         return observation
     
@@ -121,6 +140,8 @@ class RnnEstimator(Estimator):
         if self._seeEstimate:
             dim.append( (estimateHistorySize,self._n_dim_obj) )
         if self._seeTime:
+            dim.append( (1,) )
+        if self._seeSumAction:
             dim.append( (1,) )
         
         return dim
@@ -144,7 +165,7 @@ class RnnEstimator(Estimator):
     
     def generateSequence(self,T,numberSamples=1):
         """
-        Facultative, generate sequences ( for which the estimator is designed.
+            Facultative, generate sequences ( for which the estimator is designed.
         Return (objectives,measurements) with shapes (numberSamples,T,:)
         """
         (objectives,measurements)=generateSequence(T,numberSamples=numberSamples,generatorType=self._generatorType)
@@ -162,6 +183,7 @@ class RnnEstimator(Estimator):
         print('  seeMeasurement=',self._seeMeasurement)
         print('  seeEstimate=',self._seeEstimate)
         print('  seeTime=',self._seeTime)
+        print('  seeSumAction=', self._seeSumAction)
     
 def convert_to_inference_model(original_model):
     """
