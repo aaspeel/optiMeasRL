@@ -88,7 +88,7 @@ class KalmanEstimator(Estimator):
         if self._seeEstimate:
             observation.append( self._last_estimate )
         if self._seeTime:
-            observation.append( self._time/T ) # 1-1/(self._time+2) to represent the current time in [0,1[
+            observation.append( self._time/self._T ) # 1-1/(self._time+2) to represent the current time in [0,1[
         if self._seeSumAction:
             observation.append( self._sumAction)
         if self._seeCovariance:
