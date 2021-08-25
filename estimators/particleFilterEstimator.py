@@ -7,12 +7,21 @@ from utils.particleFilter import *
 
 class ParticleFilterEstimator(Estimator):
     
-    def __init__(self, T, windowSize, threshold, seeAction=True,seeMeasurement=True,
+    def __init__(self, T, windowSize, threshold, generatorType="nonlinear", seeAction=True,seeMeasurement=True,
                  seeEstimate=False,seeTime=False, seeSumAction=False):
         """
         Construct the estimator.
         """
-        self._pf=loadPF()
+        if generatorType == "spring":
+            self._pf = loadPF_linear(T)
+        elif generatorType == "benchmark":
+            self._pf = loadPF_benchmark(T)
+        else:
+            self._pf = loadPF(T)
+            
+        self._pf.generatorType=generatorType
+        
+        print(type(self._pf))
         self._pf.init_filter() #to create the particules
         
         #TOCHANGE

@@ -324,7 +324,6 @@ class ParticleFilter(object):
         # hypothesise observations (y hat)
         #self.hypotheses = self.obs_noise_fn(self.observe_fn(self.particles, **kwargs))
         self.hypotheses = self.obs_noise_fn(self.observe_fn(self.particles, **kwargs), **kwargs) 
-
         if observed is not np.nan:
             # compute similarity to observations
             # force to be positive
@@ -399,7 +398,7 @@ class ParticleFilter(object):
             self.resampled_particles = random_mask
             self.init_filter(mask=random_mask)
 
-        # apply dynamics and noise                
+        # apply dynamics and noise              
         self.particles = self.noise_fn(
             self.dynamics_fn(self.particles, **kwargs), **kwargs
         )

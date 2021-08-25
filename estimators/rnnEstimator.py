@@ -71,13 +71,8 @@ class RnnEstimator(Estimator):
         
         # input of the rnn is the sigma and the corrupted measurement
         inputRNN=np.concatenate(([[[sigma]]],measurement_corrupted_outOfRange),axis=2)
-        print("input shape: " + str(inputRNN.shape))
-        tensor_input = tf.convert_to_tensor(inputRNN, dtype=tf.int64)
-        print("tensor shape: " + str(tensor_input.shape))
-        print(tensor_input)
         # convert the corruption with mask to a corruption with outOfRangeValue
-        current_objective_est=self._model.predict(tensor_input)
-        print("after predict")
+        current_objective_est=self._model.predict(inputRNN)
         
         # storage for observation
         self._last_action=sigma  

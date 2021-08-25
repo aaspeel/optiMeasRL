@@ -11,6 +11,83 @@ def loadPF(T=50):
     #return loadPF_tumor(T=T)
     return loadPF_tumor(T=T)
 
+
+def loadPF_linear(T=50):
+    
+    #kf data
+    initial_state_mean = np.array([0, 1])
+    n_state = len(initial_state_mean)
+    initial_state_covariance = np.array([[1,0],[0,1]])
+    delta=0.5
+    transition_matrix = np.array([[np.cos(delta), np.sin(delta)], [-np.sin(delta), np.cos(delta)]])
+    observation_matrix = np.array([1,0])
+    objective_matrix = np.array([1,0]) # Added by A. Aspeel
+    transition_covariance = (1/(2*40**2))*np.array([[ delta-np.sin(delta)*np.cos(delta)  ,np.sin(delta)**2] ,
+                                                           [np.sin(delta)**2 ,  delta+np.sin(delta)*np.cos(delta) ]])
+    observation_covariance = np.array([1]) #[[1,0],[0,1]]
+    
+    #pf data
+    w_sigma = 1 # for weighting
+    output_dim = 1
+    obs_dim = 1
+    resample = None
+    
+    def prior_fn(n):
+        x = np.random.multivariate_normal(initial_state_mean,
+                                             initial_state_covariance, n)
+        return x
+    
+    def dynamics_fn(x, t):
+        res = np.dot(x, transition_matrix.T)
+        return res
+    
+    def noise_fn(x, **kwargs):
+        return x + np.random.multivariate_normal( np.zeros(n_state),
+                                                 transition_covariance,
+                                                 x.shape[0])
+        return x
+    
+    def observe_fn(x, **kwargs):
+        return np.dot(x, observation_matrix.T)
+    
+    def obs_noise_fn(x, **kwargs):
+        if obs_dim < 2:
+            #using normal because multivariate needs a cov matrix of min size (2,2)
+            x += np.random.normal(0, observation_covariance, x.shape)                              
+        else:
+           x += np.random.multivariate_normal(np.zeros(n_state), observation_covariance,    
+                                                 x.shape[0])
+        return x.reshape((x.shape[0],obs_dim))
+    
+    def weight_linear(x,y, **kwargs): 
+        return squared_error(x, y, sigma=w_sigma)
+    
+    def transform_fn(x, weights, **kwargs):
+        return np.dot(x, objective_matrix.T).reshape((x.shape[0],output_dim))
+    
+    pf = ParticleFilter(
+        prior_fn = prior_fn,
+        observe_fn = observe_fn,
+        resample_fn = resample,
+        n_particles=100,
+        dynamics_fn=dynamics_fn,
+        noise_fn=noise_fn,
+        weight_fn=weight_linear,
+        resample_proportion=0.01,
+        column_names=None,
+        internal_weight_fn=None,
+        transform_fn=transform_fn,
+        n_eff_threshold=1.0,
+        obs_noise_fn = obs_noise_fn,
+        output_dim = output_dim,
+        obs_dim = obs_dim,
+        T=T,
+    )
+    
+    return pf
+    
+
+
 def loadPF_benchmark(T=50):
     """ Create a particle filter with the tumour motion model
     """
@@ -80,11 +157,29 @@ def loadPF_tumor(T=50):
     dyn_noise = 1
     obs_noise = 1
     w_sigma = 1
+    
+    sigma_a = 1
+    sigma_b = 1
+    sigma_omega = 0.005
     output_dim = 1
     obs_dim= 1
     t_step = 0.25
        
-    noise_f = lambda x, **kwargs: x + np.random.normal(0, dyn_noise, x.shape)
+    #noise_f = lambda x, **kwargs: x + np.random.normal(0, dyn_noise, x.shape)
+    def noise_fn(x, **kwargs):
+        #Apply Gaussian noise for a and b with variance= 1
+        x[:,0] += np.random.normal(0, sigma_a)
+        x[:,1] += np.random.normal(0, sigma_b)
+        x[:,2] += np.random.normal(0, sigma_omega)
+        
+        #clip values:
+        x[:,0] = np.clip(x[:,0],8.8, 24) #8.8mm <= a <= 24mm
+        x[:,1] = np.clip(x[:,1], -5.8, 5.8) #-5.8mm <= b <= 5.8mm
+        x[:,2] = np.clip(x[:,2], 1.3, 2.1) # 1.3rad/s <= omega <= 2.1rad/s
+        
+        return x
+        
+        
     weight = lambda x,y, **kwargs : squared_error(x, y, sigma=w_sigma)
     
     def obs_noise_fn(x, **kwargs):
@@ -94,26 +189,19 @@ def loadPF_tumor(T=50):
     def rand_sin_prior(n):
         x = np.zeros((n,3))
         
-        x[:,0] = 8.8 + 15.5 * np.random.uniform(0,1,n)
-        x[:,1] = 1.3 + 2 * np.random.uniform(0,1,n)
-        x[:,2] = - 5.8 + 12 * np.random.uniform(0,1,n)
+        x[:,0] = 8.8 + 15.2 * np.random.uniform(0,1,n)
+        x[:,1] = - 5.8 + 11.6 * np.random.uniform(0,1,n)
+        x[:,2] = 1.3 +  0.8 * np.random.uniform(0,1,n)
         
         return x
-        
+    
+    
     def rand_sin_dyn(x, **kwargs):
         """
         x: 4D array [a,b,omega, t]
         """
-        #Apply Gaussian noise for a and b with variance= 1
-        x[:,0] += np.random.normal(0, 1)
-        x[:,1] += np.random.normal(0, 1)
-        
-        
-        #clip values:
-        x[:,0] = np.clip(x[:,0],8.8, 24) #8.8mm <= a <= 24mm
-        x[:,1] = np.clip(x[:,1], -5.8, 5.8) #-5.8mm <= b <= 5.8mm
-        
         return x
+    
     
     def rand_sin_obs(x, t): 
         return x[:,0] * np.sin(t * x[:,2] * t_step) + x[:,1]
@@ -129,7 +217,7 @@ def loadPF_tumor(T=50):
         resample_fn=resample,
         n_particles=100,
         dynamics_fn=rand_sin_dyn,
-        noise_fn=noise_f,
+        noise_fn=noise_fn,
         weight_fn=weight,
         resample_proportion=0.01, #0.02
         column_names=None,
@@ -161,6 +249,27 @@ def samplePFSequence(pf,T,numberSamples=2):
     #Create a copy of pf and change the number of particles to match numberSample
     #because we want each particle to give a trajectory
     pf2 = copy.deepcopy(pf)
+    
+    def tumour_noise_fn(x, **kwargs):
+        #Apply Gaussian noise for a and b with variance= 1
+        sigma_a = 1
+        sigma_b = 1
+        sigma_omega = 0
+        x[:,0] += np.random.normal(0, sigma_a)
+        x[:,1] += np.random.normal(0, sigma_b)
+        
+        #clip values:
+        x[:,0] = np.clip(x[:,0],8.8, 24) #8.8mm <= a <= 24mm
+        x[:,1] = np.clip(x[:,1], -5.8, 5.8) #-5.8mm <= b <= 5.8mm
+        x[:,2] = np.clip(x[:,2], 1.3, 2.1) # 1.3rad/s <= omega <= 2.1rad/s    
+        
+        return x
+        
+    #Special case for pf tumour where omega must be noiseless
+    if hasattr(pf2,'generatorType'):
+        if pf2.generatorType == "tumour":
+            pf2.noise_fn = tumour_noise_fn
+        
     pf2.n_particles = numberSamples
     pf2.n_eff_threshold = 0
     pf2.resample_proportion = 0

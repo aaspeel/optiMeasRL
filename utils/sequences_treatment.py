@@ -16,13 +16,13 @@ def generateSequence(T,numberSamples=1,n=1,m=1,generatorType='sinRandomFreq'):
         x=np.repeat(t,n,axis=2)
         y=np.repeat(t,m,axis=2)
         
-    elif generatorType=='kalman': # use the linear system of the Kalman filter
+    elif generatorType=='linear': # use the linear system of the Kalman filter
         kf=loadKF()
         (objectives, measurements, _) = sampleKFSequence(kf,T,numberSamples=numberSamples)
         x=objectives
         y=measurements
         
-    elif generatorType=='particle': # use the nonlinear system of the particle filter
+    elif generatorType=='nonlinear': # use the nonlinear system of the particle filter
         pf=loadPF()
         (objectives, measurements, _)=samplePFSequence(pf,T,numberSamples=numberSamples)
         x=objectives

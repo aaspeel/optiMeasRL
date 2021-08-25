@@ -16,7 +16,8 @@ def loadKF():
     observation_matrix = [[1,0]]
     objective_matrix = [[1,0]] # Added by A. Aspeel
     
-    transition_covariance = [[1/80*( delta-np.sin(delta)*np.cos(delta) ) , 1/80*np.sin(delta)**2] , [-1/80*np.sin(delta)**2 , 1/80*( delta+np.sin(delta)*np.cos(delta) )]]
+    transition_covariance = (1/(2*40**2))*np.matrix([[ delta-np.sin(delta)*np.cos(delta)  ,np.sin(delta)**2] ,
+                                                           [np.sin(delta)**2 ,  delta+np.sin(delta)*np.cos(delta) ]])
     
     observation_covariance = [[1]] #[[1,0],[0,1]]
     
