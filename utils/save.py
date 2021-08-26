@@ -36,7 +36,7 @@ def save_workspace(filename, names_of_spaces_to_save, dict_of_values_to_save, ad
     for key in names_of_spaces_to_save:
         try:
             try:
-                if key not in ['exit','get_ipython','quit','agent','n_epochs_agent']: # not working for these keys (and not the same error)
+                if key not in ['exit','get_ipython','quit','agent']: # not working for these keys (and not the same error)
                     my_shelf[key] = dict_of_values_to_save[key]
                     print(key)
             except TypeError:
@@ -52,7 +52,7 @@ def save_workspace(filename, names_of_spaces_to_save, dict_of_values_to_save, ad
     for key in names_of_spaces_to_save:
         try:
             try:
-                if key not in ['exit','get_ipython','quit','agent','n_epochs_agent']:
+                if key not in ['exit','get_ipython','quit','agent']:
                     my_shelf[key]
             except TypeError:
                 #
