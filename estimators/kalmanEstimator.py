@@ -28,9 +28,7 @@ class KalmanEstimator(Estimator):
         self._threshold = threshold
         self._T = T
         
-        
         self.reset()
-    
     
     def reset(self):
         """

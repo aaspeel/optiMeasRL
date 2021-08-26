@@ -118,9 +118,9 @@ class RnnEstimator(Estimator):
         if self._seeEstimate:
             observation.append( self._last_estimate )
         if self._seeTime:
-            observation.append( self._time/self._T ) # to represent the current time in [0,1[
+            observation.append( self._time/self._T ) # to represent the current time in [0,1]
         if self._seeSumAction:
-            observation.append( self._sumAction)
+            observation.append( self._sumAction )
         
         return observation
     
@@ -169,7 +169,7 @@ class RnnEstimator(Estimator):
             Facultative, generate sequences ( for which the estimator is designed.
         Return (objectives,measurements) with shapes (numberSamples,T,:)
         """
-        (objectives,measurements)=generateSequence(T,numberSamples=numberSamples,generatorType=self._generatorType)
+        (objectives,measurements)=generateSequence(T,self._generatorType,numberSamples=numberSamples)
         
         return (objectives,measurements)
     

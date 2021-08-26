@@ -8,11 +8,10 @@ def loadPF(T=50):
     """ Create a particle filter with a particular model
     """
     
-    #return loadPF_tumor(T=T)
     return loadPF_tumor(T=T)
 
 
-def loadPF_linear(T=50):
+def loadPF_spring(T=50):
     
     #kf data
     initial_state_mean = np.array([0, 1])
@@ -55,7 +54,7 @@ def loadPF_linear(T=50):
             #using normal because multivariate needs a cov matrix of min size (2,2)
             x += np.random.normal(0, observation_covariance, x.shape)                              
         else:
-           x += np.random.multivariate_normal(np.zeros(n_state), observation_covariance,    
+            x += np.random.multivariate_normal(np.zeros(n_state), observation_covariance,    
                                                  x.shape[0])
         return x.reshape((x.shape[0],obs_dim))
     

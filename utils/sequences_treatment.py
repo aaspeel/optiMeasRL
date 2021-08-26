@@ -7,7 +7,7 @@ from matplotlib import pyplot
 from utils.linear_systems import loadKF, sampleKFSequence
 from utils.particleFilter import loadPF, samplePFSequence
 
-def generateSequence(T,numberSamples=1,n=1,m=1,generatorType='sinRandomFreq'):
+def generateSequence(T,generatorType,numberSamples=1,n=1,m=1):
     # outputs: x a numpy array of shape (numberSamples,T,n) - The quantity to estimate
     #          y a numpy array of shape (numserSamples,T,m) - The measurement
     
