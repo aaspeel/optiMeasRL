@@ -3,8 +3,10 @@ Code from https://stackoverflow.com/questions/2960864/how-to-save-all-the-variab
 Slight modifications.
 """
 
+import pickle
 import shelve
 import time
+
 
 def save_workspace(filename, names_of_spaces_to_save, dict_of_values_to_save, add_time_stamp=True):
     '''
@@ -78,8 +80,48 @@ def load_workspace(filename, parent_globals):
             load_workspace('file_name', globals())
     '''
     my_shelf = shelve.open(filename)
+
+    print(type(my_shelf))
     for key in my_shelf:
+        print(key)
         if key != 'workspace_path':
             parent_globals[key]=my_shelf[key]
             print(key)
+    print("load done")
     my_shelf.close()
+    
+    
+def pickle_save(filename, names_of_spaces_to_save, dict_of_values_to_save, add_time_stamp=True):
+    if add_time_stamp:
+        time_str = time.strftime("%Y%m%d-%H%M%S") # time stamp added to the file name to avoid overwriting
+        filename=filename+time_str
+        
+    my_dic =dict()
+    for key in names_of_spaces_to_save:
+        try:
+            if key not in ['exit','get_ipython','quit','agent']: # not working for these keys (and not the same error)
+                my_dic[key] = dict_of_values_to_save[key]
+                print(key)
+        except Exception as e:
+            print('ERROR saving')
+            print(e)
+            
+    file = open(filename, 'wb')
+    pickle.dump(my_dic, file)
+    file.close() 
+
+
+def pickle_load(filename, parent_globals, suffixe):
+    file = open(filename,'rb')
+    data = pickle.load(file)
+    file.close()    
+    
+    for key in data:
+        if key != 'workspace_path':
+            parent_globals[key+suffixe]=data[key]
+            print(key+suffixe)
+    print("load done")
+    
+    
+    
+    

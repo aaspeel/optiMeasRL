@@ -148,4 +148,14 @@ def allHistoCumulatedRewards(cumulatedRewards,mod=5):
     ax.yaxis.set_visible(True)
     ax.yaxis.set_ticks([])
     ax.set_xlabel("Cumulated reward")
+    
+        
+def sigma_to_points(sigmas: list):
+    x = []
+    y = []
+    for i in range(len(sigmas)):
+        if sigmas[i] == 1:
+            x.append(i)
+            y.append(1)
+    return x,y
 
