@@ -161,14 +161,12 @@ def sigma_to_points(sigmas: list):
 
 
 def plotMultipleCumulatedRewards(cumulatedRewards, save=False, filename=""):
-    labels = ["self", "time"]
+    labels = ["time", "self"]
     colors = ["cornflowerblue", "purple"]
     ls = [":", "--"]
     
     cumulatedRewards=np.array(cumulatedRewards)
     (n, n_epochs)=cumulatedRewards.shape
-    print("n: " + str(n))
-    print("n epoch: " + str(n_epochs))
     
     meanCumulatedRewards=cumulatedRewards.mean(axis=1)
     
