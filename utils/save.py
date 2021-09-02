@@ -111,15 +111,15 @@ def pickle_save(filename, names_of_spaces_to_save, dict_of_values_to_save, add_t
     file.close() 
 
 
-def pickle_load(filename, parent_globals, suffixe):
+def pickle_load(filename, parent_globals, suffix=""):
     file = open(filename,'rb')
     data = pickle.load(file)
-    file.close()    
-    
+    file.close()   
+   
     for key in data:
         if key != 'workspace_path':
-            parent_globals[key+suffixe]=data[key]
-            print(key+suffixe)
+            parent_globals[key+suffix]=data[key]
+            print(key+suffix)
     print("load done")
     
     

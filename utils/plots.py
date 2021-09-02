@@ -159,3 +159,71 @@ def sigma_to_points(sigmas: list):
             y.append(1)
     return x,y
 
+
+def plotMultipleCumulatedRewards(cumulatedRewards, save=False, filename=""):
+    labels = ["self", "time"]
+    colors = ["cornflowerblue", "purple"]
+    ls = [":", "--"]
+    
+    cumulatedRewards=np.array(cumulatedRewards)
+    (n, n_epochs)=cumulatedRewards.shape
+    print("n: " + str(n))
+    print("n epoch: " + str(n_epochs))
+    
+    meanCumulatedRewards=cumulatedRewards.mean(axis=1)
+    
+    fig = pyplot.figure()
+    pyplot.title('Cumulated reward')
+    pyplot.xlabel('Epoch')
+    pyplot.ylabel('Cumulated reward')
+    for i in range(n):
+        #meanCumulatedRewards=cumulatedRewards[0].mean(axis=1)
+        #print(meanCumulatedRewards)
+        pyplot.plot(range(1,n_epochs+1),cumulatedRewards[i],color=colors[i],label=labels[i], ls=ls[i])
+    
+    pyplot.legend()
+    pyplot.show()
+    
+    if save:
+        fig.savefig(filename)    
+    
+    
+def plotEstimateSigma(objectives_test_time, estimates_test_self, estimates_test_time,
+                      sigmas_test_self, sigmas_test_time, sigmas_regular_time,
+                   estimates_regular_time, idx, T, save=False,
+                   filename=""):
+    
+    min_val = min([min(objectives_test_time[idx]), min(estimates_test_self[idx]), min(estimates_test_time[idx]),
+               min(estimates_regular_time[idx])])
+
+    x_self, y_self = sigma_to_points(sigmas_test_self[idx])
+    x_time, y_time = sigma_to_points(sigmas_test_time[idx])
+    x_reg, y_reg = sigma_to_points(sigmas_regular_time[idx])
+    
+    fig = pyplot.figure()
+    
+    pyplot.title("Comparing 3 different plots")
+    pyplot.xlabel("Time [s]")
+    pyplot.ylabel("z")
+    #curves
+    pyplot.plot(range(0,T), estimates_regular_time[idx], label="regular", 
+             color='orange', ls='-.')
+    pyplot.plot(range(0,T), estimates_test_time[idx], label="time triggered", 
+             color='purple', ls='--')
+    pyplot.plot(range(0,T), estimates_test_self[idx], label="self triggered",
+             color='cornflowerblue', ls=':')
+    pyplot.plot(range(0,T), objectives_test_time[idx], label="objective", 
+             color='green', ls='-')
+    
+    #sigmas
+    pyplot.scatter(x_self, y_self*min_val - 3 * abs(min_val/10), label="self triggered",
+                color='cornflowerblue', marker='o')
+    pyplot.scatter(x_time, y_time*min_val - 2 * abs(min_val/10), label="time triggered",
+                color='purple', marker='D')
+    pyplot.scatter(x_reg, y_reg*min_val - abs(min_val/10), label="regular",
+                color='orange', marker='+')
+    
+    pyplot.legend(loc='best')
+    pyplot.show()
+    if save:
+        fig.savefig(filename)
