@@ -5,28 +5,34 @@ To manipulate data sequences.
 import numpy as np
 from matplotlib import pyplot
 from utils.linear_systems import loadKF, sampleKFSequence
-from utils.particleFilter import loadPF, samplePFSequence
+from utils.particleFilter import loadPF_tumor,loadPF_benchmark, samplePFSequence
 
 def generateSequence(T,generatorType,numberSamples=1,n=1,m=1):
     # outputs: x a numpy array of shape (numberSamples,T,n) - The quantity to estimate
     #          y a numpy array of shape (numserSamples,T,m) - The measurement
     
-    if generatorType=='random01':
-        t=np.random.random([numberSamples,T,1])
-        x=np.repeat(t,n,axis=2)
-        y=np.repeat(t,m,axis=2)
-        
-    elif generatorType=='linear': # use the linear system of the Kalman filter
+    if generatorType=='spring': # use the linear system of the Kalman filter
         kf=loadKF()
         (objectives, measurements, _) = sampleKFSequence(kf,T,numberSamples=numberSamples)
         x=objectives
         y=measurements
         
-    elif generatorType=='nonlinear': # use the nonlinear system of the particle filter
-        pf=loadPF()
+    elif generatorType=='tumor': # use the nonlinear system of the particle filter
+        pf=loadPF_tumor(T)
         (objectives, measurements, _)=samplePFSequence(pf,T,numberSamples=numberSamples)
         x=objectives
         y=measurements
+        
+    elif generatorType=='benchmark': # use the nonlinear system of the particle filter
+        pf=loadPF_benchmark(T)
+        (objectives, measurements, _)=samplePFSequence(pf,T,numberSamples=numberSamples)
+        x=objectives
+        y=measurements
+        
+    elif generatorType=='random01':
+        t=np.random.random([numberSamples,T,1])
+        x=np.repeat(t,n,axis=2)
+        y=np.repeat(t,m,axis=2)
         
     elif generatorType=='sin':
         if (not n==1) or (not n==1):

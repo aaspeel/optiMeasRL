@@ -16,8 +16,10 @@ class ParticleFilterEstimator(Estimator):
             self._pf = loadPF_spring(T)
         elif generatorType == "benchmark":
             self._pf = loadPF_benchmark(T)
+        elif generatorType == "tumor":
+            self._pf = loadPF_tumor(T)
         else:
-            self._pf = loadPF(T)
+            print("ERROR: unknown generatorType in ParticleFilterEstimator. Possible values are sping, benchmark and tumor")
             
         self._pf.generatorType=generatorType
         
@@ -112,9 +114,9 @@ class ParticleFilterEstimator(Estimator):
         Return the shape of an obsevation (including the action and the history size).
         Used by the environment
         """
-        sigmaHistorySize=12 # T-1
-        measurementHistorySize=12 # T-1
-        estimateHistorySize=12 # T-1
+        sigmaHistorySize=2 # T-1
+        measurementHistorySize=2 # T-1
+        estimateHistorySize=2 # T-1
         
         dim=[]
         if self._seeAction:

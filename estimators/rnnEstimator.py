@@ -129,9 +129,9 @@ class RnnEstimator(Estimator):
         Facultative
         Return the shape of an obsevation (including the action and the history size).
         """
-        sigmaHistorySize=12 # T-1
-        measurementHistorySize=12 # T-1
-        estimateHistorySize=12 # T-1
+        sigmaHistorySize=2 # T-1
+        measurementHistorySize=2 # T-1
+        estimateHistorySize=2 # T-1
         
         dim=[]
         if self._seeAction:

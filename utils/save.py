@@ -96,14 +96,14 @@ def pickle_save(filename, names_of_spaces_to_save, dict_of_values_to_save, add_t
         time_str = time.strftime("%Y%m%d-%H%M%S") # time stamp added to the file name to avoid overwriting
         filename=filename+time_str
         
-    my_dic =dict()
+    my_dic = dict()
     for key in names_of_spaces_to_save:
         try:
-            if key not in ['exit','get_ipython','quit','agent']: # not working for these keys (and not the same error)
-                my_dic[key] = dict_of_values_to_save[key]
-                print(key)
+            my_dic[key] = dict_of_values_to_save[key]
+            print(key)
         except Exception as e:
-            print('ERROR saving')
+            print('ERROR in saving')
+            print('key:',key)
             print(e)
             
     file = open(filename, 'wb')

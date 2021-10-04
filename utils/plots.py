@@ -171,7 +171,7 @@ def plotMultipleCumulatedRewards(cumulatedRewards, save=False, filename=""):
     meanCumulatedRewards=cumulatedRewards.mean(axis=1)
     
     fig = pyplot.figure()
-    pyplot.title('Cumulated reward')
+    #pyplot.title('Cumulated reward')
     pyplot.xlabel('Epoch')
     pyplot.ylabel('Cumulated reward')
     for i in range(n):

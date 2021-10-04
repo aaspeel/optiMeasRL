@@ -30,7 +30,8 @@ def constructAgent(estimator,rewarder,objectives_train,measurements_train,object
     qnetwork=MyQNetwork(environment=env, random_state=rng, batch_size=batch_size, neural_network=AgentNetwork)
     agent=NeuralAgent(env, qnetwork, batch_size=batch_size, random_state=rng)
     
-    #agent.setDiscountFactor(1.0)
+    agent.setDiscountFactor(1.0)
+    agent.setLearningRate(0.001) # default is 0.005
 
     # load agent
     #agent.setNetwork('../../myFolder/myModels/retrainedAgent_KF')

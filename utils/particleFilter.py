@@ -4,12 +4,10 @@ import copy
 from math import sin
 
 
+"""
 def loadPF(T=50):
-    """ Create a particle filter with a particular model
-    """
-    
     return loadPF_tumor(T=T)
-
+"""
 
 def loadPF_spring(T=50):
     
@@ -88,8 +86,6 @@ def loadPF_spring(T=50):
 
 
 def loadPF_benchmark(T=50):
-    """ Create a particle filter with the tumour motion model
-    """
     resample = None #systematic_resample
     dyn_noise = 1
     w_sigma = dyn_noise # for weighting
@@ -149,7 +145,7 @@ def loadPF_benchmark(T=50):
     return pf
 
 def loadPF_tumor(T=50):
-    """ Create a particle filter with the tumour motion model
+    """ Create a particle filter with the tumor motion model
     """
     
     resample = None #systematic_resample
